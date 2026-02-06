@@ -51,5 +51,5 @@ EXPOSE 3001
 
 ENV PORT=3001
 
-# Run migration script (don't fail if it errors) and start server
-CMD ["sh", "-c", "node scripts/apply-whatsapp-migration.js || true && node dist/server.js"]
+# Run migrations and start server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
