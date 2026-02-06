@@ -112,14 +112,16 @@ export default function SettlementDetailPage() {
     if (!owner || !period) return null
 
     const [year, month] = period.split('-').map(Number)
-    const periodStart = new Date(year, month - 1, 1)
-    const periodEnd = new Date(year, month, 0) // Last day of month
+    const periodStart = new Date(Date.UTC(year, month - 1, 1))
 
     // Filter obligations for this owner and period
     const ownerObligations: Obligation[] = obligations.filter((ob) => {
-      // Check if obligation is in the selected period
+      // Check if obligation is in the selected period using UTC to avoid timezone issues
       const obligationDate = new Date(ob.period)
-      if (obligationDate < periodStart || obligationDate > periodEnd) return false
+      const obYear = obligationDate.getUTCFullYear()
+      const obMonth = obligationDate.getUTCMonth() + 1
+      
+      if (obYear !== year || obMonth !== month) return false
 
       // Get owner ID from apartment (direct or via contract)
       const apartment = ob.apartment || ob.contract?.apartment
