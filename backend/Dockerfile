@@ -13,7 +13,8 @@ COPY prisma ./prisma/
 # Install all dependencies (including dev for build)
 RUN npm ci
 
-# Generate Prisma Client
+# Generate Prisma Client (use dummy URL for build, real URL at runtime)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npx prisma generate
 
 # Build stage
@@ -21,6 +22,9 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Set dummy DATABASE_URL for build (prisma generate needs it)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 
 # Build TypeScript
 RUN npm run build
