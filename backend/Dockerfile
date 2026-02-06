@@ -18,5 +18,5 @@ RUN npm run build
 # Expose port
 EXPOSE 3001
 
-# Start command - migrations run at startup when DATABASE_URL is available
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# Start command - push schema to DB at startup (creates tables if not exist)
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/server.js"]
