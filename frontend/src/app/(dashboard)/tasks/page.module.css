@@ -1,0 +1,968 @@
+/* Tasks Page */
+
+/* Tabs */
+.tabsContainer {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  background: transparent;
+  color: var(--text-primary);
+  border-bottom-color: var(--text-tertiary);
+}
+
+.tabActive {
+  background: transparent;
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.tabActive:hover {
+  background: transparent;
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+/* Main Layout - Tasks Left + Calendar/Widgets Right */
+.mainLayout {
+  display: flex;
+  gap: 24px;
+}
+
+/* List Panel - Left 60% */
+.listPanel {
+  flex: 0 0 60%;
+  min-width: 0;
+}
+
+.listCard {
+  height: 100%;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+/* Right Panel - Calendar + Widgets 40% */
+.rightPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calendarCard {
+  flex-shrink: 0;
+}
+
+.widgetCard {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1100px) {
+  .mainLayout {
+    flex-direction: column;
+  }
+  
+  .listPanel {
+    flex: 1;
+  }
+  
+  .rightPanel {
+    flex: 1;
+  }
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.calendarTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+  min-width: 200px;
+  text-align: center;
+}
+
+.calendarNavBtn {
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendarNavBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.calendarWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  padding: 8px 0;
+  text-transform: uppercase;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendarDay {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.calendarDay:hover {
+  background: var(--bg-hover);
+}
+
+.calendarDayEmpty {
+  aspect-ratio: 1;
+}
+
+.calendarDayToday {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.calendarDayToday .dayNumber {
+  background: #3b82f6;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendarDayPast {
+  opacity: 0.5;
+}
+
+.calendarDayHasTasks {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.dayNumber {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Task Indicators */
+.taskIndicator {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.taskDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.stickyUrgent {
+  background: #ef4444;
+}
+
+.stickyHigh {
+  background: #f59e0b;
+}
+
+.stickyMedium {
+  background: #eab308;
+}
+
+.stickyLow {
+  background: #22c55e;
+}
+
+@media (max-width: 640px) {
+  .calendarContainer {
+    padding: 16px;
+  }
+  
+  .dayNumber {
+    font-size: 0.75rem;
+  }
+  
+  .calendarDayToday .dayNumber {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Filters */
+.filtersRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 150px;
+  max-width: 200px;
+}
+
+.filterSelect {
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.filterSelect:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary-light);
+}
+
+/* Tasks List */
+.loading,
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 64px;
+  color: var(--text-tertiary);
+}
+
+.empty svg {
+  opacity: 0.3;
+}
+
+.tasksList {
+  display: flex;
+  flex-direction: column;
+}
+
+.taskItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.15s ease;
+}
+
+.taskItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.taskItem:last-child {
+  border-bottom: none;
+}
+
+.taskItem.completed {
+  opacity: 0.6;
+}
+
+.taskItem.completed .taskTitle {
+  text-decoration: line-through;
+}
+
+.taskItem.overdue:not(.completed) {
+  background: var(--error-light);
+}
+
+/* Checkbox */
+.taskCheckbox {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 6px;
+  border: 2px solid var(--border-medium);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+  margin-top: 2px;
+}
+
+.taskCheckbox:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-light);
+}
+
+.taskCheckbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+}
+
+/* Task Content */
+.taskContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.taskHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.taskTitle {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.taskItem.completed .taskTitle {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.taskItem.completed .taskDescription {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.taskItem.completed {
+  opacity: 0.7;
+}
+
+/* Completed Section */
+.completedSection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.completedHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.completedHeader svg {
+  color: var(--success);
+}
+
+.taskBadges {
+  display: flex;
+  gap: 8px;
+}
+
+.taskDescription {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 4px 0 8px 0;
+  line-height: 1.4;
+}
+
+.taskMeta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.taskMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+/* Task Actions */
+.taskActions {
+  display: flex;
+  gap: 4px;
+}
+
+.taskAction {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.taskAction:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Modal */
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formGroup label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.textarea {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+}
+
+.textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.textarea:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary-light);
+}
+
+.select {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.select:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary-light);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* Widget Styles */
+.widgetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.widgetTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.contactsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contactItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contactAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.contactInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.contactName {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.contactCategory {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.emptyWidget {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  padding: 16px 0;
+}
+
+/* Task Dot Colors */
+.dotUrgent {
+  background: #ef4444;
+}
+
+.dotHigh {
+  background: #f59e0b;
+}
+
+.dotMedium {
+  background: #eab308;
+}
+
+.dotLow {
+  background: #22c55e;
+}
+
+/* Calendar Day Selected */
+.calendarDaySelected {
+  background: var(--accent-primary) !important;
+  color: white !important;
+}
+
+.calendarDaySelected .dayNumber {
+  color: white !important;
+}
+
+/* Day View Breadcrumb */
+.dayViewBreadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.breadcrumbBack {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.breadcrumbBack:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbSeparator {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.breadcrumbCurrent {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.dayViewTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  text-transform: capitalize;
+}
+
+/* Sticky Notes Grid */
+.stickyNotesGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stickyNote {
+  padding: 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stickyNote::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.stickyNote:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Sticky Note Colors by Priority */
+.stickyNoteUrgent {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.stickyNoteUrgent::before {
+  background: #ef4444;
+}
+
+.stickyNoteHigh {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.stickyNoteHigh::before {
+  background: #f59e0b;
+}
+
+.stickyNoteMedium {
+  background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+}
+
+.stickyNoteMedium::before {
+  background: #eab308;
+}
+
+.stickyNoteLow {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.stickyNoteLow::before {
+  background: #22c55e;
+}
+
+.stickyNoteHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stickyNoteTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.3;
+}
+
+.stickyNoteDescription {
+  font-size: 0.8rem;
+  color: #4b5563;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.stickyNoteFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stickyNotePriority {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Contacts Page Styles */
+.contactsLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.contactsHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.contactsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.emptyContacts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 64px;
+  color: var(--text-tertiary);
+  grid-column: 1 / -1;
+}
+
+.emptyContacts svg {
+  opacity: 0.3;
+}
+
+.contactCard {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.contactCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.contactCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.contactAvatarLarge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.contactCardActions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.contactCardActions button,
+.contactCardActions a {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.contactCardActions button:hover,
+.contactCardActions a:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.contactCardName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  text-decoration: none;
+  display: block;
+  transition: color 0.15s ease;
+}
+
+.contactCardName:hover {
+  color: var(--accent-primary);
+}
+
+.contactCardDetail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.contactCardDetail a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.contactCardDetail a:hover {
+  text-decoration: underline;
+}
+
+.contactCardDetail .position {
+  color: var(--text-tertiary);
+}
+
+.contactCardNotes {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  line-height: 1.4;
+}
+
+/* Link/Relation Selectors */
+.linkLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.linkGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .linkGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.selectSmall {
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  outline: none;
+  width: 100%;
+}
+
+.selectSmall:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-primary-light);
+}
+
+/* Premium Link Grid */
+.linkGridPremium {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .linkGridPremium {
+    grid-template-columns: 1fr;
+  }
+}

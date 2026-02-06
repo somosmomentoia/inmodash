@@ -1,0 +1,94 @@
+/* Select Component Styles */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.selectWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select {
+  width: 100%;
+  appearance: none;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding-right: 36px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary-light);
+}
+
+.select:disabled {
+  background-color: var(--bg-tertiary);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Sizes */
+.sm .select {
+  height: 32px;
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-size-xs);
+}
+
+.md .select {
+  height: 40px;
+  padding: 0 var(--spacing-md);
+}
+
+.lg .select {
+  height: 48px;
+  padding: 0 var(--spacing-lg);
+  font-size: var(--font-size-base);
+}
+
+/* Icon */
+.icon {
+  position: absolute;
+  right: var(--spacing-md);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+/* Error State */
+.hasError .select {
+  border-color: var(--error);
+}
+
+.hasError .select:focus {
+  box-shadow: 0 0 0 3px var(--error-light);
+}
+
+/* Helper Text */
+.error {
+  font-size: var(--font-size-xs);
+  color: var(--error);
+}
+
+.hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}

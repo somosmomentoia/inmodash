@@ -1,0 +1,112 @@
+/* TaskItem Component Styles */
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  transition: all var(--transition-fast);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-medium);
+}
+
+/* Status Icon */
+.statusIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pending .statusIcon {
+  color: var(--text-tertiary);
+}
+
+.in_progress .statusIcon {
+  color: var(--accent-primary);
+}
+
+.completed .statusIcon {
+  color: var(--success);
+}
+
+.overdue .statusIcon {
+  color: var(--error);
+}
+
+/* Content */
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.completed .title {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* Due Date */
+.dueDate {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.overdue .dueDate {
+  color: var(--error);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Priority Badge */
+.priorityBadge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.priority-low .priorityBadge,
+.priorityBadge.priority-low {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.priority-medium .priorityBadge,
+.priorityBadge.priority-medium {
+  background-color: var(--warning-light);
+  color: var(--warning-dark);
+}
+
+.priority-high .priorityBadge,
+.priorityBadge.priority-high {
+  background-color: var(--error-light);
+  color: var(--error-dark);
+}

@@ -1,0 +1,74 @@
+/* ProgressRing Component Styles */
+
+.container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring {
+  transform: rotate(0deg);
+}
+
+.background {
+  fill: none;
+  stroke: var(--bg-tertiary);
+}
+
+.progress {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Colors */
+.primary {
+  stroke: var(--accent-primary);
+}
+
+.success {
+  stroke: var(--success);
+}
+
+.warning {
+  stroke: var(--warning);
+}
+
+.error {
+  stroke: var(--error);
+}
+
+/* Content */
+.content {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.value {
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Sizes */
+.sm .value {
+  font-size: var(--font-size-lg);
+}
+
+.md .value {
+  font-size: var(--font-size-2xl);
+}
+
+.lg .value {
+  font-size: var(--font-size-3xl);
+}

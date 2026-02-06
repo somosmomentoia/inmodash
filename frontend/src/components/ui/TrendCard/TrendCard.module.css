@@ -1,0 +1,228 @@
+/* TrendCard Component Styles - Premium Edition */
+
+.card {
+  position: relative;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-2xl);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -12px var(--card-shadow);
+}
+
+/* Color Variables */
+.blue { 
+  --card-color: #3B82F6; 
+  --card-light: #EFF6FF;
+  --card-shadow: rgba(59, 130, 246, 0.25);
+}
+.purple { 
+  --card-color: #8B5CF6; 
+  --card-light: #F5F3FF;
+  --card-shadow: rgba(139, 92, 246, 0.25);
+}
+.green { 
+  --card-color: #10B981; 
+  --card-light: #ECFDF5;
+  --card-shadow: rgba(16, 185, 129, 0.25);
+}
+.orange { 
+  --card-color: #F59E0B; 
+  --card-light: #FFFBEB;
+  --card-shadow: rgba(245, 158, 11, 0.25);
+}
+.cyan { 
+  --card-color: #06B6D4; 
+  --card-light: #ECFEFF;
+  --card-shadow: rgba(6, 182, 212, 0.25);
+}
+
+/* Pulse Effect */
+.pulse {
+  position: absolute;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--card-color);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.pulse::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--card-color);
+  opacity: 0.3;
+  animation: pulseRing 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+@keyframes pulseRing {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(2); opacity: 0; }
+}
+
+/* Background Chart */
+.background {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  color: var(--card-color);
+  pointer-events: none;
+}
+
+.bgChart {
+  width: 100%;
+  height: 100%;
+}
+
+.areaPath {
+  opacity: 0;
+  animation: fadeInArea 1s ease-out 0.3s forwards;
+}
+
+.linePath {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawLine 1.5s ease-out 0.5s forwards;
+}
+
+@keyframes fadeInArea {
+  to { opacity: 1; }
+}
+
+@keyframes drawLine {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Content */
+.content {
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Badge */
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  animation: badgePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.8s both;
+}
+
+@keyframes badgePop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.positive {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.negative {
+  background: rgba(239, 68, 68, 0.1);
+  color: #DC2626;
+}
+
+/* Value */
+.valueContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.value {
+  font-size: 2.5rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.previousValue {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+/* Dots indicator */
+.dots {
+  position: absolute;
+  bottom: var(--spacing-lg);
+  right: var(--spacing-lg);
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--card-color);
+  opacity: 0.3;
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+.dot:nth-child(1) { animation-delay: 0s; }
+.dot:nth-child(2) { animation-delay: 0.15s; }
+.dot:nth-child(3) { animation-delay: 0.3s; }
+.dot:nth-child(4) { animation-delay: 0.45s; }
+.dot:nth-child(5) { animation-delay: 0.6s; }
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Hover effects */
+.card:hover .linePath {
+  stroke-width: 3;
+}
+
+.card:hover .badge {
+  transform: scale(1.05);
+}
+
+.card:hover .dot {
+  animation-duration: 0.8s;
+}

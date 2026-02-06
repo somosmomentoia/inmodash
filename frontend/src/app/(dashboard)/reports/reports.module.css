@@ -1,0 +1,187 @@
+/* Reports Page Styles */
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quickFilters {
+  margin-bottom: 24px;
+}
+
+.mainLayout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 32px;
+}
+
+@media (max-width: 1200px) {
+  .mainLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Reports Grid */
+.reportsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.reportSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.reportCards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .reportCards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Saved Reports Sidebar */
+.savedReports {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  height: fit-content;
+  position: sticky;
+  top: 24px;
+}
+
+.savedTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.savedList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.savedItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 12px;
+  transition: background-color 0.15s ease;
+}
+
+.savedItem:hover {
+  background: #f3f4f6;
+}
+
+.savedIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.savedIcon.liquidaciones {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.savedIcon.pagos {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.savedIcon.mora {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.savedInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.savedName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savedSubtitle {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.savedDate {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.savedActions {
+  display: flex;
+  gap: 4px;
+}
+
+.savedAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.savedAction:hover {
+  background: #e5e7eb;
+  color: #374151;
+}

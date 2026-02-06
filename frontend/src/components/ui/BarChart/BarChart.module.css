@@ -1,0 +1,107 @@
+/* BarChart Component Styles */
+
+.container {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+/* Vertical Layout */
+.vertical {
+  flex-direction: row;
+  align-items: flex-end;
+  height: 200px;
+}
+
+.vertical .barGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  height: 100%;
+}
+
+.vertical .barWrapper {
+  flex: 1;
+  width: 100%;
+  max-width: 48px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.vertical .bar {
+  width: 100%;
+  border-radius: var(--radius-md);
+  transition: height 0.5s ease;
+}
+
+.vertical .label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.vertical .value {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+/* Horizontal Layout */
+.horizontal {
+  flex-direction: column;
+}
+
+.horizontal .barGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.horizontal .label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.horizontal .barWrapper {
+  flex: 1;
+  height: 24px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.horizontal .bar {
+  height: 100%;
+  border-radius: var(--radius-md);
+  transition: width 0.5s ease;
+}
+
+.horizontal .value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  min-width: 60px;
+  text-align: right;
+}
+
+/* Colors */
+.primary {
+  background: linear-gradient(165deg, #2563EB 0%, #3B82F6 50%, #60A5FA 100%);
+}
+
+.success {
+  background-color: var(--success);
+}
+
+.warning {
+  background-color: var(--warning);
+}
+
+.error {
+  background-color: var(--error);
+}

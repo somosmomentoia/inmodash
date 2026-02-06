@@ -1,0 +1,177 @@
+/* ComparisonCard Component Styles */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Color Variables */
+.blue { --comp-color: #3B82F6; --comp-light: #EFF6FF; }
+.purple { --comp-color: #8B5CF6; --comp-light: #F5F3FF; }
+.green { --comp-color: #10B981; --comp-light: #ECFDF5; }
+.orange { --comp-color: #F59E0B; --comp-light: #FFFBEB; }
+.cyan { --comp-color: #06B6D4; --comp-light: #ECFEFF; }
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Period Switch */
+.periodSwitch {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.periodButton {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.periodButton:hover {
+  color: var(--text-secondary);
+}
+
+.periodActive {
+  background: white;
+  color: var(--comp-color);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Comparison */
+.comparison {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Current Period */
+.currentPeriod {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.currentValue {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.currentLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Change Indicator */
+.changeIndicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.changeBadge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.positive {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.negative {
+  background: rgba(239, 68, 68, 0.1);
+  color: #DC2626;
+}
+
+.vsLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* Previous Period */
+.previousPeriod {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-xs);
+}
+
+.previousValue {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.previousLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Chart */
+.chartContainer {
+  height: 60px;
+  margin-top: auto;
+  color: var(--comp-color);
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 640px) {
+  .comparison {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .changeIndicator {
+    align-items: flex-start;
+  }
+  
+  .previousPeriod {
+    align-items: flex-start;
+  }
+}

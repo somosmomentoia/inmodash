@@ -1,0 +1,169 @@
+/* MetricCard Component Styles */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-xl);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -8px rgba(0, 0, 0, 0.1);
+}
+
+/* Glow effect */
+.glow {
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.card:hover .glow {
+  opacity: 1;
+}
+
+/* Color Variants */
+.blue { --card-color: #3B82F6; --card-color-light: #EFF6FF; }
+.purple { --card-color: #8B5CF6; --card-color-light: #F5F3FF; }
+.green { --card-color: #10B981; --card-color-light: #ECFDF5; }
+.orange { --card-color: #F59E0B; --card-color-light: #FFFBEB; }
+.cyan { --card-color: #06B6D4; --card-color-light: #ECFEFF; }
+
+.blue .glow { background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%); }
+.purple .glow { background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%); }
+.green .glow { background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%); }
+.orange .glow { background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%); }
+.cyan .glow { background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%); }
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: var(--card-color-light);
+  color: var(--card-color);
+}
+
+.iconWrapper svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Trend */
+.trend {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+}
+
+.trendUp {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.trendDown {
+  background: rgba(239, 68, 68, 0.1);
+  color: #DC2626;
+}
+
+/* Content */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  position: relative;
+  z-index: 1;
+}
+
+.value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+
+/* Sparkline */
+.sparkline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  opacity: 0.6;
+  color: var(--card-color);
+}
+
+.sparkline svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sparklineLine {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparklineArea {
+  opacity: 0.3;
+}
+
+/* Interactive */
+.interactive {
+  cursor: pointer;
+}
+
+.interactive:hover {
+  border-color: var(--card-color);
+}
+
+.arrow {
+  position: absolute;
+  bottom: var(--spacing-md);
+  right: var(--spacing-md);
+  color: var(--text-tertiary);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.2s ease;
+}
+
+.interactive:hover .arrow {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--card-color);
+}

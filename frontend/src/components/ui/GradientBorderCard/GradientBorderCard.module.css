@@ -1,0 +1,95 @@
+/* GradientBorderCard Component Styles - Premium Edition */
+
+.card {
+  position: relative;
+  border-radius: var(--radius-2xl);
+  background: var(--bg-secondary);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Border Gradient */
+.borderGradient {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--border-width, 2px);
+  background: var(--gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Gradient Presets */
+.blue-purple { --gradient: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%); }
+.green-cyan { --gradient: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #3B82F6 100%); }
+.orange-red { --gradient: linear-gradient(135deg, #F59E0B 0%, #EF4444 50%, #EC4899 100%); }
+.rainbow { --gradient: linear-gradient(135deg, #EF4444 0%, #F59E0B 17%, #10B981 33%, #06B6D4 50%, #3B82F6 67%, #8B5CF6 83%, #EC4899 100%); }
+.custom { --gradient: var(--custom-gradient, linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)); }
+
+/* Animated gradient */
+.animated .borderGradient {
+  background-size: 300% 300%;
+  animation: gradientRotate 4s ease infinite;
+}
+
+@keyframes gradientRotate {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Glow Intensity */
+.glow-none { box-shadow: none; }
+
+.glow-subtle {
+  box-shadow: 0 0 20px -5px var(--glow-color, rgba(59, 130, 246, 0.2));
+}
+
+.glow-medium {
+  box-shadow: 0 0 30px -5px var(--glow-color, rgba(59, 130, 246, 0.3));
+}
+
+.glow-strong {
+  box-shadow: 0 0 40px -5px var(--glow-color, rgba(59, 130, 246, 0.4));
+}
+
+.blue-purple { --glow-color: rgba(139, 92, 246, 0.3); }
+.green-cyan { --glow-color: rgba(6, 182, 212, 0.3); }
+.orange-red { --glow-color: rgba(239, 68, 68, 0.3); }
+.rainbow { --glow-color: rgba(139, 92, 246, 0.3); }
+
+/* Hover Effects */
+.hover-lift:hover {
+  transform: translateY(-6px);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 50px -5px var(--glow-color, rgba(59, 130, 246, 0.5));
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-none:hover {
+  transform: none;
+}
+
+/* Content */
+.content {
+  position: relative;
+  z-index: 1;
+  padding: var(--spacing-xl);
+  border-radius: inherit;
+  background: var(--bg-secondary);
+}
+
+/* Hover border animation */
+.card:hover .borderGradient {
+  opacity: 1;
+}
+
+.animated:hover .borderGradient {
+  animation-duration: 2s;
+}

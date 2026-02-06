@@ -1,0 +1,207 @@
+/* CounterCard Component Styles - Premium Edition */
+
+.card {
+  position: relative;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-2xl);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -12px var(--card-shadow);
+}
+
+/* Color Variables */
+.blue { 
+  --card-color: #3B82F6; 
+  --card-light: #EFF6FF;
+  --card-shadow: rgba(59, 130, 246, 0.25);
+}
+.purple { 
+  --card-color: #8B5CF6; 
+  --card-light: #F5F3FF;
+  --card-shadow: rgba(139, 92, 246, 0.25);
+}
+.green { 
+  --card-color: #10B981; 
+  --card-light: #ECFDF5;
+  --card-shadow: rgba(16, 185, 129, 0.25);
+}
+.orange { 
+  --card-color: #F59E0B; 
+  --card-light: #FFFBEB;
+  --card-shadow: rgba(245, 158, 11, 0.25);
+}
+.cyan { 
+  --card-color: #06B6D4; 
+  --card-light: #ECFEFF;
+  --card-shadow: rgba(6, 182, 212, 0.25);
+}
+
+/* Size variants */
+.sm .value { font-size: 2rem; }
+.md .value { font-size: 3rem; }
+.lg .value { font-size: 4rem; }
+.xl .value { font-size: 5rem; }
+
+/* Glowing effect */
+.glowing {
+  background: linear-gradient(135deg, var(--card-light) 0%, var(--bg-secondary) 100%);
+}
+
+.glowEffect {
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--card-shadow) 0%, transparent 70%);
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+/* Content */
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+}
+
+/* Icon */
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-xl);
+  background: var(--card-light);
+  color: var(--card-color);
+  flex-shrink: 0;
+}
+
+.iconWrapper svg {
+  width: 28px;
+  height: 28px;
+}
+
+/* Text Content */
+.textContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Value */
+.valueWrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.prefix {
+  font-size: 0.4em;
+  font-weight: var(--font-weight-semibold);
+  color: var(--card-color);
+}
+
+.value {
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--card-color) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.glowing .value {
+  -webkit-text-fill-color: transparent;
+}
+
+.suffix {
+  font-size: 0.5em;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-secondary);
+}
+
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+/* Particles */
+.particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--card-color);
+  opacity: 0;
+}
+
+.glowing .particle {
+  animation: particleFloat 4s ease-in-out infinite;
+}
+
+.particle:nth-child(1) { left: 10%; top: 20%; }
+.particle:nth-child(2) { left: 20%; top: 80%; }
+.particle:nth-child(3) { left: 80%; top: 30%; }
+.particle:nth-child(4) { left: 70%; top: 70%; }
+.particle:nth-child(5) { left: 40%; top: 10%; }
+.particle:nth-child(6) { left: 90%; top: 50%; }
+
+@keyframes particleFloat {
+  0%, 100% {
+    opacity: 0;
+    transform: translateY(0) scale(0);
+  }
+  50% {
+    opacity: 0.6;
+    transform: translateY(-20px) scale(1);
+  }
+}
+
+/* Hover effects */
+.card:hover .iconWrapper {
+  transform: scale(1.1);
+  transition: transform 0.3s ease;
+}
+
+.card:hover .particle {
+  animation-duration: 2s;
+}

@@ -1,0 +1,1272 @@
+// Configuración del generador y datasource
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo: User (Usuario del sistema)
+model User {
+  id                    Int       @id @default(autoincrement())
+  email                 String    @unique @db.VarChar(255)
+  passwordHash          String    @db.VarChar(255)
+  name                  String    @db.VarChar(255)
+  role                  String    @default("user") @db.VarChar(50) // user, admin
+  isEmailVerified       Boolean   @default(false)
+  emailVerificationToken String?  @db.VarChar(255)
+  emailVerificationExpires DateTime?
+  passwordResetToken    String?   @db.VarChar(255)
+  passwordResetExpires  DateTime?
+  refreshTokenHash      String?   @db.VarChar(255)
+  failedLoginAttempts   Int       @default(0)
+  lockedUntil           DateTime?
+  lastLoginAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Datos del representante
+  phone                 String?   @db.VarChar(50)
+  position              String?   @db.VarChar(100) // Cargo en la inmobiliaria
+  
+  // Datos de la inmobiliaria
+  companyName           String?   @db.VarChar(255)
+  companyTaxId          String?   @db.VarChar(100) // CUIT/RUT/Tax ID
+  companyAddress        String?   @db.VarChar(500)
+  companyCity           String?   @db.VarChar(100)
+  companyState          String?   @db.VarChar(100)
+  companyCountry        String?   @db.VarChar(100)
+  companyZipCode        String?   @db.VarChar(20)
+  companyPhone          String?   @db.VarChar(50)
+  companyWebsite        String?   @db.VarChar(255)
+  
+  // Datos de suscripción
+  subscriptionStatus    String    @default("trial") @db.VarChar(50) // trial, active, suspended, cancelled
+  subscriptionPlan      String    @default("professional") @db.VarChar(50) // professional
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  trialEndsAt           DateTime?
+  
+  // Datos de pago (por ahora opcionales)
+  paymentMethod         String?   @db.VarChar(50) // credit_card, bank_transfer, etc
+  lastPaymentDate       DateTime?
+  nextPaymentDate       DateTime?
+  
+  // Preferencias del usuario (widgets, configuraciones de UI, etc)
+  preferences           Json?     @default("{}")
+  
+  // Relaciones
+  sessions  Session[]
+  auditLogs AuditLog[]
+  
+  // Relaciones con el sistema inmobiliario (Multi-tenancy)
+  buildings   Building[]
+  apartments  Apartment[]
+  tenants     Tenant[]
+  owners      Owner[]
+  contracts   Contract[]
+  guarantors  Guarantor[]
+  payments    Payment[]  // LEGACY - mantener para compatibilidad
+  documents   Document[]
+  
+  // Nuevas relaciones - Sistema de Obligaciones
+  obligations          Obligation[]
+  obligationPayments   ObligationPayment[]
+  recurringObligations RecurringObligation[]
+  settlements          Settlement[]
+  
+  // Relación con WhatsApp Bot
+  whatsappConfig WhatsAppConfig?
+  
+  // Relación con Suscripciones de MercadoPago
+  subscriptions Subscription[]
+  
+  // Relación con Tareas
+  tasks Task[]
+  
+  // Relación con Contactos
+  contacts Contact[]
+  
+  // Relación con Notificaciones
+  notifications Notification[]
+  
+  // Relación con Prospectos
+  prospects Prospect[]
+  
+  // Relación con Tenant Portal
+  tenantUsers TenantUser[]
+  
+  // Relación con Asientos Contables
+  accountingEntries AccountingEntry[]
+  
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// Modelo: Session (Sesiones de usuario)
+model Session {
+  id           String   @id @default(cuid())
+  userId       Int
+  sessionToken String   @unique @db.VarChar(255)
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relación con User
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([sessionToken])
+  @@map("sessions")
+}
+
+// Modelo: AuditLog (Log de auditoría)
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String   @db.VarChar(100)
+  resource  String   @db.VarChar(100)
+  resourceId String? @db.VarChar(50)
+  details   String?  @db.Text
+  ipAddress String?  @db.VarChar(45)
+  userAgent String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+  
+  // Relación con User (opcional, para acciones anónimas)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Modelo: Building (Edificio)
+model Building {
+  id        Int       @id @default(autoincrement())
+  userId    Int       // Usuario propietario del edificio
+  name      String    @db.VarChar(255)
+  address   String    @db.VarChar(500)
+  city      String    @db.VarChar(100)
+  province  String    @db.VarChar(100)
+  owner     String    @db.VarChar(255) // Campo legacy para compatibilidad
+  ownerId   Int?      // Relación con Owner (opcional para migración gradual)
+  floors    Int
+  totalArea Float
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relaciones
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ownerRelation   Owner?               @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  apartments      Apartment[]
+  floorConfig     FloorConfiguration[]
+  
+  @@index([userId])
+  @@index([name])
+  @@index([ownerId])
+  @@map("buildings")
+}
+
+// Modelo: FloorConfiguration
+model FloorConfiguration {
+  id              Int      @id @default(autoincrement())
+  buildingId      Int
+  floor           Int
+  apartmentsCount Int
+  
+  // Relación
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  
+  @@index([buildingId])
+  @@map("floor_configurations")
+}
+
+// Modelo: Owner (Propietario)
+model Owner {
+  id                   Int         @id @default(autoincrement())
+  userId               Int         // Usuario propietario del registro
+  name                 String      @db.VarChar(255)
+  dniOrCuit            String      @unique @db.VarChar(20)
+  phone                String      @db.VarChar(50)
+  email                String      @db.VarChar(255)
+  address              String      @db.VarChar(500)
+  bankAccount          String?     @db.VarChar(100)
+  
+  // Balance del propietario (positivo = a favor del propietario, negativo = debe a la inmobiliaria)
+  balance              Float       @default(0)
+  
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  
+  // Relaciones
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartments         Apartment[]
+  buildings          Building[]
+  documents          Document[]
+  settlements        Settlement[]
+  obligationPayments ObligationPayment[] // Pagos aplicados al saldo del propietario
+  tasks              Task[]              // Tareas vinculadas
+  accountingEntries  AccountingEntry[]   // Asientos contables relacionados
+  
+  @@index([userId])
+  @@index([dniOrCuit])
+  @@map("owners")
+}
+
+// Modelo: Apartment (Departamento)
+model Apartment {
+  id              Int       @id @default(autoincrement())
+  uniqueId        String    @unique @db.VarChar(100)
+  
+  // Usuario propietario del apartamento (para multi-tenancy)
+  userId          Int?
+  
+  // Relación con edificio (OPCIONAL para departamentos independientes)
+  buildingId      Int?
+  floor           Int?
+  apartmentLetter String?   @db.VarChar(20)
+  nomenclature    String    @db.VarChar(100)
+  
+  // Campos para departamentos independientes (cuando no hay edificio)
+  fullAddress     String?   @db.Text
+  city            String?   @db.VarChar(200)
+  province        String?   @db.VarChar(200)
+  
+  // Propietario (OPCIONAL)
+  ownerId         Int?
+  
+  // Tipo de propiedad
+  propertyType    String    @default("departamento") @db.VarChar(50)
+  
+  // Información general
+  area            Float     @default(0)
+  rooms           Int       @default(0)
+  areaPercentage  Float     @default(0)
+  roomPercentage  Float     @default(0)
+  status          String    @default("disponible") @db.VarChar(50)
+  saleStatus      String    @default("no_esta_en_venta") @db.VarChar(50)
+  
+  // Precio de alquiler (para WhatsApp Bot)
+  rentalPrice     Float?
+  
+  // Especificaciones adicionales (JSON flexible según tipo de propiedad)
+  specifications  String?   @db.Text
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relaciones
+  user                 User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  building             Building?              @relation(fields: [buildingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  owner                Owner?                 @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contracts            Contract[]
+  rentalHistory        RentalHistory[]
+  documents            Document[]
+  obligations          Obligation[]           // Nueva relación
+  recurringObligations RecurringObligation[]  // Recurrencias vinculadas
+  tasks                Task[]                 // Tareas vinculadas
+  prospects            Prospect[]             // Prospectos interesados
+  
+  @@index([userId])
+  @@index([buildingId])
+  @@index([ownerId])
+  @@index([status])
+  @@map("apartments")
+}
+
+// Modelo: Tenant (Cliente/Inquilino)
+model Tenant {
+  id             Int       @id @default(autoincrement())
+  userId         Int       // Usuario propietario del registro
+  nameOrBusiness String    @db.VarChar(255)
+  dniOrCuit      String    @db.VarChar(20)
+  address        String    @db.VarChar(500)
+  contactName    String    @db.VarChar(255)
+  contactPhone   String    @db.VarChar(50)
+  contactEmail   String    @db.VarChar(255)
+  contactAddress String    @db.VarChar(500)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  // Relaciones
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contracts         Contract[]
+  rentalHistory     RentalHistory[]
+  documents         Document[]
+  tasks             Task[]            // Tareas vinculadas
+  convertedFromProspect Prospect?     @relation("ProspectToTenant") // Prospecto que originó este inquilino
+  
+  // Relaciones Tenant Portal
+  tenantUsers   TenantUser[]
+  tenantInvites TenantInvite[]
+  
+  @@index([userId])
+  @@index([dniOrCuit])
+  @@map("tenants")
+}
+
+// Modelo: Guarantor (Garante)
+// Los garantes pertenecen a la inmobiliaria (userId) y pueden asociarse a cualquier contrato
+model Guarantor {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // Multi-tenancy - pertenece al usuario/inmobiliaria
+  name      String   @db.VarChar(255)
+  dni       String   @db.VarChar(20)
+  address   String   @db.VarChar(500)
+  email     String   @db.VarChar(255)
+  phone     String   @db.VarChar(50)
+  
+  // Documentos (PDFs)
+  contractPdfUrl     String?  @db.VarChar(500)
+  salaryReceiptPdfUrl String? @db.VarChar(500)
+  
+  // Soft delete
+  isActive  Boolean  @default(true)
+  deletedAt DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relaciones
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contracts ContractGuarantor[] @relation("GuarantorToContract")
+  
+  @@index([userId])
+  @@index([isActive])
+  @@map("guarantors")
+}
+
+// Modelo: Contract (Contrato)
+model Contract {
+  id                   Int       @id @default(autoincrement())
+  userId               Int       // Usuario propietario del contrato
+  apartmentId          Int
+  tenantId             Int
+  startDate            DateTime
+  endDate              DateTime
+  initialAmount        Float
+  // Comisión de la inmobiliaria sobre alquileres
+  commissionType       String?   @db.VarChar(20) // "percentage" o "fixed"
+  commissionValue      Float?    // Valor de la comisión (% o monto fijo)
+  contractDocumentPath String?   @db.VarChar(500) // Ruta al documento principal del contrato
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  // Relaciones
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartment            Apartment              @relation(fields: [apartmentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updateRule           UpdateRule?
+  guarantors           ContractGuarantor[]    @relation("ContractToGuarantor")
+  rentalHistory        RentalHistory?
+  payments             Payment[]              // LEGACY - mantener para compatibilidad
+  documents            Document[]
+  obligations          Obligation[]           // Nueva relación
+  recurringObligations RecurringObligation[]  // Recurrencias vinculadas
+  tasks                Task[]                 // Tareas vinculadas
+  convertedFromProspect Prospect?             @relation("ProspectToContract") // Prospecto que originó este contrato
+  accountingEntries    AccountingEntry[]      // Asientos contables relacionados
+  
+  @@index([userId])
+  @@index([apartmentId])
+  @@index([tenantId])
+  @@map("contracts")
+}
+
+// Modelo: UpdateRule (Regla de Actualización)
+model UpdateRule {
+  id                    Int      @id @default(autoincrement())
+  contractId            Int      @unique
+  updateFrequency       String   @db.VarChar(50)
+  monthlyCoefficient    Float?
+  lateInterestPercent   Float?
+  lateInterestFrequency String?  @db.VarChar(50)
+  
+  // Relaciones
+  contract      Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  updatePeriods UpdatePeriod[]
+  
+  @@map("update_rules")
+}
+
+// Modelo: UpdatePeriod (Período de Actualización)
+model UpdatePeriod {
+  id           Int       @id @default(autoincrement())
+  updateRuleId Int
+  date         DateTime
+  type         String    @db.VarChar(50)
+  value        Float?
+  indexName    String?   @db.VarChar(100)
+  
+  // Relación
+  updateRule UpdateRule @relation(fields: [updateRuleId], references: [id], onDelete: Cascade)
+  
+  @@index([updateRuleId])
+  @@map("update_periods")
+}
+
+// Modelo: Payment (Pago de Alquiler)
+model Payment {
+  id               Int       @id @default(autoincrement())
+  userId           Int       // Usuario propietario del pago
+  contractId       Int
+  month            DateTime  // Mes al que corresponde el pago
+  amount           Float     // Monto del alquiler
+  commissionAmount Float     @default(0) // Comisión de la inmobiliaria
+  ownerAmount      Float     @default(0) // Lo que recibe el propietario
+  paymentDate      DateTime? // Fecha en que se realizó el pago
+  status           String    @default("pending") @db.VarChar(20) // pending, paid, overdue
+  notes            String?   @db.VarChar(500)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // Relaciones
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  @@index([userId])
+  @@index([contractId])
+  @@index([status])
+  @@index([month])
+  @@map("payments")
+}
+
+// Modelo: Obligation (Obligación/Deuda/Cargo)
+// Reemplaza conceptualmente a Payment, soporta múltiples tipos
+// El operador registra qué pasó, la app calcula quién gana/quién paga
+model Obligation {
+  id                  Int       @id @default(autoincrement())
+  userId              Int       // Multi-tenancy
+  contractId          Int?      // Opcional: puede no estar vinculado a contrato
+  apartmentId         Int?      // Opcional: puede ser a nivel propiedad
+  recurringObligationId Int?    // Vinculación a recurrencia (si fue generada por una)
+  type                String    @db.VarChar(50) // "rent", "expenses", "service", "tax", "insurance", "maintenance", "debt"
+  category            String?   @db.VarChar(100) // Subcategoría: luz/agua/gas para service, ABL/ARBA para tax, etc.
+  description         String    @db.VarChar(500)
+  period              DateTime  // Período al que corresponde (normalizado al primer día del mes)
+  dueDate             DateTime  // Fecha de vencimiento
+  amount              Float     // Monto total
+  paidAmount          Float     @default(0) // Monto pagado (suma de ObligationPayments)
+  
+  // === DISTRIBUCIÓN DE DINERO ===
+  // Quién paga esta obligación: "tenant", "owner", "agency"
+  paidBy              String    @default("tenant") @db.VarChar(20)
+  
+  // Impacto en liquidación del propietario (puede ser + o -)
+  // rent: ownerAmount = amount - commissionAmount (positivo, recibe dinero)
+  // tax/maintenance: ownerImpact negativo (se descuenta de liquidación)
+  ownerImpact         Float     @default(0)
+  
+  // Impacto en contabilidad de la inmobiliaria (puede ser + o -)
+  // rent: agencyImpact = commissionAmount (positivo, comisión)
+  // maintenance a cargo de agency: agencyImpact negativo (gasto)
+  agencyImpact        Float     @default(0)
+  
+  // Campos legacy para compatibilidad (se calculan desde ownerImpact/agencyImpact)
+  commissionAmount    Float     @default(0) // Comisión inmobiliaria (solo para type=rent)
+  ownerAmount         Float     @default(0) // Monto propietario (solo para type=rent)
+  
+  status              String    @default("pending") @db.VarChar(20) // "pending", "partial", "paid", "overdue"
+  isAutoGenerated     Boolean   @default(false) // true si fue generada automáticamente
+  notes               String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // Relaciones
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contract             Contract?            @relation(fields: [contractId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  apartment            Apartment?           @relation(fields: [apartmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  recurringObligation  RecurringObligation? @relation(fields: [recurringObligationId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  obligationPayments   ObligationPayment[]
+  tasks                Task[]               // Tareas vinculadas
+  accountingEntries    AccountingEntry[]    // Asientos contables relacionados
+  
+  @@index([userId])
+  @@index([contractId])
+  @@index([apartmentId])
+  @@index([recurringObligationId])
+  @@index([type])
+  @@index([status])
+  @@index([period])
+  @@index([dueDate])
+  @@map("obligations")
+}
+
+// Modelo: ObligationPayment (Pago Real)
+// Registra eventos de dinero, permite pagos parciales
+model ObligationPayment {
+  id            Int       @id @default(autoincrement())
+  userId        Int       // Multi-tenancy
+  obligationId  Int
+  amount        Float     // Monto del pago
+  paymentDate   DateTime  // Fecha real del pago
+  method        String?   @db.VarChar(50) // "cash", "transfer", "check", "card", "other", "owner_balance"
+  reference     String?   @db.VarChar(255) // Número de comprobante/referencia
+  notes         String?   @db.VarChar(500)
+  
+  // Para pagos aplicados al saldo del propietario
+  appliedToOwnerBalance Boolean @default(false) // Si se descontó del saldo del propietario
+  ownerId               Int?    // Propietario afectado (si appliedToOwnerBalance = true)
+  
+  // Campos para Tenant Portal
+  source         String?   @db.VarChar(50) // 'tenant_portal' | 'admin' | 'mercadopago_webhook'
+  paymentGroupId String?   @db.VarChar(100) // UUID para agrupar pagos múltiples del carrito
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relaciones
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  obligation Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  owner      Owner?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([obligationId])
+  @@index([paymentDate])
+  @@map("obligation_payments")
+}
+
+// Modelo: RecurringObligation (Obligación Recurrente)
+// Define plantillas para generar obligaciones automáticamente cada mes
+model RecurringObligation {
+  id              Int       @id @default(autoincrement())
+  userId          Int       // Multi-tenancy
+  contractId      Int?      // Opcional: puede no estar vinculado a contrato
+  apartmentId     Int?      // Opcional: puede ser a nivel propiedad
+  type            String    @db.VarChar(50) // "rent", "expenses", "service", "tax", "insurance", "maintenance", "debt"
+  category        String?   @db.VarChar(100) // Subcategoría opcional
+  description     String    @db.VarChar(500)
+  amount          Float     // Monto base (puede variar en cada generación)
+  dayOfMonth      Int       // Día del mes para vencimiento (1-31)
+  isActive        Boolean   @default(true) // Si está activa o pausada
+  startDate       DateTime  // Desde cuándo empieza a generar
+  endDate         DateTime? // Hasta cuándo genera (null = indefinido)
+  lastGenerated   DateTime? // Último mes generado (YYYY-MM-01)
+  notes           String?   @db.Text
+  
+  // === CONFIGURACIÓN DE DISTRIBUCIÓN (para type=rent principalmente) ===
+  // Quién paga por defecto: "tenant", "owner", "agency"
+  paidBy              String    @default("tenant") @db.VarChar(20)
+  
+  // Comisión inmobiliaria para alquileres
+  // commissionType: "percentage" o "fixed"
+  commissionType      String?   @db.VarChar(20)
+  // commissionValue: porcentaje (ej: 10 = 10%) o monto fijo (ej: 10000)
+  commissionValue     Float?
+  
+  // === CONFIGURACIÓN DE ACTUALIZACIÓN POR ÍNDICE (ICL/IPC) ===
+  // Tipo de índice: "icl" (Índice para Contratos de Locación), "ipc" (Índice de Precios al Consumidor), "fixed" (coeficiente fijo), "none" (sin actualización)
+  updateIndexType     String?   @db.VarChar(20)
+  // Frecuencia de actualización en meses (ej: 4 = cada 4 meses)
+  updateFrequencyMonths Int?
+  // Valor del índice al inicio del contrato (para calcular variación)
+  initialIndexValue   Float?
+  // Fecha del valor inicial del índice
+  initialIndexDate    DateTime?
+  // Coeficiente fijo (solo si updateIndexType = "fixed")
+  fixedUpdateCoefficient Float?
+  // Último monto aplicado (después de actualizaciones)
+  currentAmount       Float?
+  // Última fecha de actualización aplicada
+  lastUpdateApplied   DateTime?
+  // Contador de períodos desde última actualización
+  periodsSinceUpdate  Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relaciones
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contract        Contract?     @relation(fields: [contractId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  apartment       Apartment?    @relation(fields: [apartmentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  obligations     Obligation[]  // Obligaciones generadas por esta recurrencia
+  
+  @@index([userId])
+  @@index([contractId])
+  @@index([apartmentId])
+  @@index([isActive])
+  @@index([lastGenerated])
+  @@map("recurring_obligations")
+}
+
+// Modelo: Settlement (Liquidación a Propietario)
+// Registra cuándo se liquidó dinero a un propietario
+model Settlement {
+  id              Int       @id @default(autoincrement())
+  userId          Int       // Multi-tenancy
+  ownerId         Int       // Propietario al que se liquida
+  period          DateTime  // Período de la liquidación (YYYY-MM-01)
+  totalCollected  Float     // Total cobrado en el período
+  ownerAmount     Float     // Monto liquidado al propietario
+  commissionAmount Float    // Comisión retenida por la inmobiliaria
+  status          String    @default("pending") @db.VarChar(20) // "pending", "settled"
+  settledAt       DateTime? // Fecha en que se marcó como liquidado
+  paymentMethod   String?   @db.VarChar(50) // "transfer", "cash", "check"
+  reference       String?   @db.VarChar(255) // Número de transferencia/comprobante
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relaciones
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  owner           Owner     @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  // Asientos contables generados por esta liquidación
+  accountingEntries AccountingEntry[]
+  
+  @@unique([userId, ownerId, period])
+  @@index([userId])
+  @@index([ownerId])
+  @@index([period])
+  @@index([status])
+  @@map("settlements")
+}
+
+// Modelo: Document (Documentos)
+model Document {
+  id          Int       @id @default(autoincrement())
+  userId      Int       // Usuario propietario del documento
+  type        String    @db.VarChar(50) // dni, recibo_sueldo, contrato, garantia, otro
+  fileName    String    @db.VarChar(255)
+  fileUrl     String    @db.VarChar(500)
+  fileSize    Int       // Tamaño en bytes
+  mimeType    String    @db.VarChar(100)
+  description String?   @db.VarChar(500)
+  uploadedAt  DateTime  @default(now())
+  
+  // Relaciones opcionales (un documento puede pertenecer a diferentes entidades)
+  tenantId    Int?
+  ownerId     Int?
+  contractId  Int?
+  apartmentId Int?
+  
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  owner     Owner?     @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contract  Contract?  @relation(fields: [contractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  apartment Apartment? @relation(fields: [apartmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  @@index([userId])
+  @@index([tenantId])
+  @@index([ownerId])
+  @@index([contractId])
+  @@index([apartmentId])
+  @@index([type])
+  @@map("documents")
+}
+
+// Modelo: ContractGuarantor (Relación muchos a muchos)
+model ContractGuarantor {
+  contractId  Int
+  guarantorId Int
+  
+  contract   Contract  @relation("ContractToGuarantor", fields: [contractId], references: [id], onDelete: Cascade)
+  guarantor  Guarantor @relation("GuarantorToContract", fields: [guarantorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  @@id([contractId, guarantorId])
+  @@map("contract_guarantors")
+}
+
+// Modelo: RentalHistory (Historial de Alquileres)
+model RentalHistory {
+  id            Int      @id @default(autoincrement())
+  apartmentId   Int
+  contractId    Int      @unique
+  tenantId      Int
+  tenantName    String   @db.VarChar(255)
+  startDate     DateTime
+  endDate       DateTime
+  initialAmount Float
+  finalAmount   Float?
+  createdAt     DateTime @default(now())
+  
+  // Relaciones
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  contract  Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  @@index([apartmentId])
+  @@index([tenantId])
+  @@map("rental_history")
+}
+
+// ============================================
+// WHATSAPP BOT MODELS
+// ============================================
+
+// Modelo: WhatsAppConfig (Configuración del Bot de WhatsApp)
+model WhatsAppConfig {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Meta Credentials
+  wabaId          String   @db.VarChar(255) // WhatsApp Business Account ID
+  phoneNumberId   String   @unique @db.VarChar(255) // Phone Number ID
+  accessToken     String   @db.Text // Permanent Access Token (puede ser largo)
+  verifyToken     String   @db.VarChar(255) // Token para verificar webhook
+  
+  // Bot Settings
+  botName         String   @default("Martina") @db.VarChar(100)
+  companyName     String   @db.VarChar(255)
+  
+  // Status
+  isActive        Boolean  @default(false)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relaciones
+  conversations   Conversation[]
+  
+  @@index([userId])
+  @@index([phoneNumberId])
+  @@map("whatsapp_configs")
+}
+
+// Modelo: Conversation (Conversación con Cliente)
+model Conversation {
+  id              Int      @id @default(autoincrement())
+  
+  configId        Int
+  config          WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  
+  // Customer Info
+  phoneNumber     String   @db.VarChar(50) // Número del cliente
+  customerName    String?  @db.VarChar(255)
+  
+  // Conversation State
+  state           String   @default("initial") @db.VarChar(50) // initial, collecting_name, collecting_type, etc
+  context         String   @default("{}") @db.Text // JSON con info recopilada
+  
+  // Timestamps
+  lastMessageAt   DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relaciones
+  messages        Message[]
+  
+  @@unique([configId, phoneNumber])
+  @@index([configId])
+  @@index([phoneNumber])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// Modelo: Message (Mensajes de la Conversación)
+model Message {
+  id              Int      @id @default(autoincrement())
+  
+  conversationId  Int
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Message Info
+  direction       String   @db.VarChar(20) // incoming, outgoing
+  content         String   @db.Text
+  messageId       String?  @unique @db.VarChar(255) // ID del mensaje de WhatsApp
+  
+  // Metadata (datos extraídos por IA)
+  extractedData   String?  @db.Text // JSON con datos extraídos
+  
+  // Timestamp
+  createdAt       DateTime @default(now())
+  
+  @@index([conversationId])
+  @@index([messageId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// ============================================
+// MERCADOPAGO SUBSCRIPTION MODELS
+// ============================================
+
+// Modelo: Subscription (Suscripciones de MercadoPago)
+model Subscription {
+  id                        Int       @id @default(autoincrement())
+  userId                    Int
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // MercadoPago IDs
+  mercadopagoSubscriptionId String?   @unique @db.VarChar(255) // ID de la suscripción en MP
+  mercadopagoCustomerId     String?   @db.VarChar(255) // ID del cliente en MP
+  mercadopagoPreapprovalId  String?   @unique @db.VarChar(255) // ID del preapproval plan
+  
+  // Subscription Details
+  plan                      String    @db.VarChar(50) // professional, enterprise, etc
+  status                    String    @db.VarChar(50) // pending, authorized, paused, cancelled
+  amount                    Float     // Monto mensual
+  currency                  String    @default("ARS") @db.VarChar(10) // ARS, USD, etc
+  
+  // Billing Cycle
+  billingDay                Int?      // Día del mes para cobro (1-31)
+  frequency                 Int       @default(1) // Frecuencia en meses
+  frequencyType             String    @default("months") @db.VarChar(20) // months, days
+  
+  // Dates
+  startDate                 DateTime  // Fecha de inicio
+  nextBillingDate           DateTime? // Próxima fecha de cobro
+  endDate                   DateTime? // Fecha de finalización (si aplica)
+  
+  // Payment Info
+  lastPaymentDate           DateTime?
+  lastPaymentStatus         String?   @db.VarChar(50)
+  lastPaymentAmount         Float?
+  
+  // Trial
+  isTrialActive             Boolean   @default(false)
+  trialEndDate              DateTime?
+  
+  // Metadata
+  metadata                  String?   @db.Text // JSON con info adicional
+  
+  // Timestamps
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  
+  // Relaciones
+  payments                  SubscriptionPayment[]
+  
+  @@index([userId])
+  @@index([mercadopagoSubscriptionId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+// Modelo: SubscriptionPayment (Pagos de Suscripción)
+model SubscriptionPayment {
+  id                    Int          @id @default(autoincrement())
+  subscriptionId        Int
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  // MercadoPago Payment Info
+  mercadopagoPaymentId  String       @unique @db.VarChar(255)
+  
+  // Payment Details
+  amount                Float
+  currency              String       @db.VarChar(10)
+  status                String       @db.VarChar(50) // approved, pending, rejected, refunded
+  statusDetail          String?      @db.VarChar(255)
+  
+  // Payment Method
+  paymentMethodId       String?      @db.VarChar(255)
+  paymentType           String?      @db.VarChar(50) // credit_card, debit_card, etc
+  
+  // Dates
+  paidAt                DateTime?
+  createdAt             DateTime     @default(now())
+  
+  // Metadata
+  metadata              String?      @db.Text // JSON con info adicional de MP
+  
+  @@index([subscriptionId])
+  @@index([mercadopagoPaymentId])
+  @@index([status])
+  @@map("subscription_payments")
+}
+
+// Modelo: Task (Tareas del usuario)
+model Task {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Información de la tarea
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  
+  // Fechas
+  dueDate     DateTime?              // Fecha de vencimiento
+  completedAt DateTime?              // Fecha de completado
+  
+  // Estado
+  status      TaskStatus @default(pending)
+  priority    TaskPriority @default(medium)
+  
+  // Relaciones opcionales (para vincular con entidades)
+  contractId  Int?
+  contract    Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  apartmentId Int?
+  apartment   Apartment? @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  ownerId     Int?
+  owner       Owner?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  tenantId    Int?
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  obligationId Int?
+  obligation  Obligation? @relation(fields: [obligationId], references: [id], onDelete: SetNull)
+  contactId   Int?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([priority])
+  @@map("tasks")
+}
+
+// Enum: TaskStatus
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+// Enum: TaskPriority
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+// Modelo: Contact (Contactos del usuario)
+model Contact {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Información del contacto
+  name        String    @db.VarChar(255)
+  email       String?   @db.VarChar(255)
+  phone       String?   @db.VarChar(50)
+  company     String?   @db.VarChar(255)
+  position    String?   @db.VarChar(100)
+  notes       String?   @db.Text
+  
+  // Categoría
+  category    ContactCategory @default(other)
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relación con tareas
+  tasks       Task[]
+  
+  @@index([userId])
+  @@index([category])
+  @@map("contacts")
+}
+
+// Enum: ContactCategory
+enum ContactCategory {
+  client
+  provider
+  agent
+  lawyer
+  accountant
+  maintenance
+  other
+}
+
+// Modelo: Notification (Notificaciones del sistema)
+model Notification {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Tipo y contenido
+  type        NotificationType
+  title       String    @db.VarChar(255)
+  message     String    @db.Text
+  
+  // Estado
+  read        Boolean   @default(false)
+  readAt      DateTime?
+  
+  // Referencia a entidad relacionada (opcional)
+  entityType  String?   @db.VarChar(50) // contract, obligation, task, etc
+  entityId    Int?
+  
+  // Link para navegar al detalle
+  actionUrl   String?   @db.VarChar(500)
+  
+  // Metadata adicional (JSON)
+  metadata    Json?
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime? // Notificaciones pueden expirar
+  
+  @@index([userId])
+  @@index([userId, read])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// Enum: NotificationType
+enum NotificationType {
+  contract_expiring      // Contrato próximo a vencer
+  contract_expired       // Contrato vencido
+  payment_due            // Pago próximo a vencer
+  payment_overdue        // Pago vencido
+  payment_received       // Pago recibido
+  task_due               // Tarea próxima a vencer
+  task_overdue           // Tarea vencida
+  task_assigned          // Tarea asignada
+  whatsapp_message       // Nuevo mensaje de WhatsApp
+  system                 // Notificación del sistema
+  reminder               // Recordatorio general
+  prospect_stale         // Prospecto sin actividad
+  prospect_approved      // Prospecto aprobado pendiente de conversión
+}
+
+// ============================================
+// MÓDULO DE PROSPECTOS (Leasing)
+// ============================================
+
+// Modelo: Prospect (Prospecto/Interesado)
+// Representa a una persona interesada en alquilar una propiedad
+// ANTES de convertirse en Inquilino (Tenant)
+model Prospect {
+  id            Int             @id @default(autoincrement())
+  userId        Int             // Multi-tenancy
+  
+  // Datos personales
+  fullName      String          @db.VarChar(255)
+  phone         String          @db.VarChar(50)
+  email         String?         @db.VarChar(255)
+  dniOrCuit     String?         @db.VarChar(20) // Opcional hasta conversión
+  
+  // Propiedad de interés
+  apartmentId   Int?            // Propiedad específica de interés
+  
+  // Origen del prospecto
+  source        ProspectSource  @default(other)
+  
+  // Estado del proceso
+  status        ProspectStatus  @default(new)
+  
+  // Notas generales
+  notes         String?         @db.Text
+  
+  // Trazabilidad de conversión
+  convertedToTenantId   Int?    @unique // Si se convirtió, ID del inquilino creado
+  convertedToContractId Int?    @unique // Si se convirtió, ID del contrato creado
+  convertedAt           DateTime?
+  
+  // Timestamps
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  // Relaciones
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartment     Apartment?      @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+  convertedToTenant   Tenant?   @relation("ProspectToTenant", fields: [convertedToTenantId], references: [id], onDelete: SetNull)
+  convertedToContract Contract? @relation("ProspectToContract", fields: [convertedToContractId], references: [id], onDelete: SetNull)
+  
+  // Historial de acciones
+  activities    ProspectActivity[]
+  
+  // Documentos adjuntos
+  documents     ProspectDocument[]
+  
+  @@index([userId])
+  @@index([apartmentId])
+  @@index([status])
+  @@index([source])
+  @@index([createdAt])
+  @@map("prospects")
+}
+
+// Enum: ProspectSource (Origen del prospecto)
+enum ProspectSource {
+  whatsapp      // WhatsApp
+  web           // Sitio web / Portal
+  referral      // Referido
+  walk_in       // Visita espontánea
+  phone         // Llamada telefónica
+  social_media  // Redes sociales
+  other         // Otro
+}
+
+// Enum: ProspectStatus (Estados del prospecto)
+// Flujo lineal: new → contacted → visited → under_review → approved/rejected → converted
+enum ProspectStatus {
+  new           // Nuevo - recién ingresado
+  contacted     // Contactado - se estableció comunicación
+  visited       // Visitó la propiedad
+  under_review  // En evaluación - documentación en revisión
+  approved      // Aprobado - listo para firmar contrato
+  rejected      // Rechazado - no califica
+  converted     // Convertido - ya es inquilino con contrato
+}
+
+// Modelo: ProspectActivity (Historial de acciones)
+// Timeline de todas las acciones realizadas sobre el prospecto
+model ProspectActivity {
+  id          Int                   @id @default(autoincrement())
+  prospectId  Int
+  
+  // Tipo de actividad
+  type        ProspectActivityType
+  
+  // Descripción de la actividad
+  description String                @db.Text
+  
+  // Metadata adicional (ej: estado anterior/nuevo en cambios de estado)
+  metadata    Json?
+  
+  // Timestamp
+  createdAt   DateTime              @default(now())
+  
+  // Relación
+  prospect    Prospect              @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  @@index([prospectId])
+  @@index([createdAt])
+  @@map("prospect_activities")
+}
+
+// Enum: ProspectActivityType
+enum ProspectActivityType {
+  created           // Prospecto creado
+  status_changed    // Cambio de estado
+  note_added        // Nota agregada
+  document_uploaded // Documento subido
+  visit_scheduled   // Visita programada
+  visit_completed   // Visita realizada
+  contact_attempt   // Intento de contacto
+  converted         // Convertido a contrato
+  info_updated      // Información actualizada
+}
+
+// Modelo: ProspectDocument (Documentos del prospecto)
+// DNI, recibos de sueldo, referencias, etc.
+model ProspectDocument {
+  id          Int       @id @default(autoincrement())
+  prospectId  Int
+  
+  // Información del documento
+  name        String    @db.VarChar(255)
+  type        String    @db.VarChar(50) // dni, salary_receipt, reference, other
+  fileUrl     String    @db.VarChar(500)
+  fileSize    Int?      // Tamaño en bytes
+  mimeType    String?   @db.VarChar(100)
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  
+  // Relación
+  prospect    Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  
+  @@index([prospectId])
+  @@map("prospect_documents")
+}
+
+// ============================================
+// TENANT PORTAL MODELS
+// ============================================
+
+// Modelo: TenantUser (Vinculación User ↔ Tenant)
+// Un User con role='tenant' puede estar vinculado a múltiples Tenants (ej: local + cochera)
+// Todos los Tenants vinculados deben pertenecer a la misma agencia (userId)
+model TenantUser {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // User (role = 'tenant')
+  tenantId  Int      // Tenant existente (inquilino de negocio)
+  createdAt DateTime @default(now())
+  
+  // Relaciones
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
+  @@map("tenant_users")
+}
+
+// Modelo: TenantInvite (Invitación al Portal)
+// Tokens de invitación para que inquilinos activen su cuenta en el portal
+// El inquilino elige su email al activar la cuenta, no se requiere al generar la invitación
+model TenantInvite {
+  id        Int       @id @default(autoincrement())
+  tenantId  Int       // Tenant al que se invita
+  token     String    @unique @db.VarChar(255) // UUID único
+  expiresAt DateTime  // Fecha de expiración (7 días desde creación)
+  usedAt    DateTime? // Fecha en que se usó (null = no usado)
+  createdAt DateTime  @default(now())
+  
+  // Relación
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([token])
+  @@map("tenant_invites")
+}
+
+// ============================================
+// MÓDULO DE CONTABILIDAD
+// ============================================
+
+// Modelo: AccountingEntry (Asientos Contables)
+// Registra hitos históricos de la contabilidad de la inmobiliaria
+// Principalmente: comisiones cobradas al realizar liquidaciones
+model AccountingEntry {
+  id            Int                   @id @default(autoincrement())
+  userId        Int                   // Multi-tenancy
+  
+  // Tipo de asiento
+  type          AccountingEntryType
+  
+  // Descripción del movimiento
+  description   String                @db.VarChar(500)
+  
+  // Monto (positivo = ingreso, negativo = egreso)
+  amount        Decimal               @db.Decimal(12, 2)
+  
+  // Fecha del movimiento
+  entryDate     DateTime              @db.Date
+  
+  // Período contable (mes/año al que corresponde)
+  period        DateTime              @db.Date
+  
+  // Referencias opcionales
+  settlementId  Int?                  // Liquidación que originó este asiento
+  ownerId       Int?                  // Propietario relacionado
+  contractId    Int?                  // Contrato relacionado
+  obligationId  Int?                  // Obligación relacionada
+  
+  // Metadata adicional (JSON)
+  metadata      Json?
+  
+  // Timestamps
+  createdAt     DateTime              @default(now())
+  
+  // Relaciones
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settlement    Settlement?           @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+  owner         Owner?                @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  contract      Contract?             @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  obligation    Obligation?           @relation(fields: [obligationId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([type])
+  @@index([entryDate])
+  @@index([period])
+  @@index([settlementId])
+  @@index([ownerId])
+  @@map("accounting_entries")
+}
+
+// Enum: AccountingEntryType
+enum AccountingEntryType {
+  commission          // Comisión cobrada por alquiler
+  commission_service  // Comisión por servicio adicional
+  expense             // Gasto operativo de la inmobiliaria
+  income_other        // Otro ingreso
+  adjustment          // Ajuste contable
+}

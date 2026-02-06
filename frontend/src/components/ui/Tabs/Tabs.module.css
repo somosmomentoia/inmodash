@@ -1,0 +1,99 @@
+/* Tabs Component Styles */
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--accent-primary);
+}
+
+/* Underline Variant */
+.underline {
+  border-bottom: 1px solid var(--border-light);
+  gap: 0;
+}
+
+.underline .tab {
+  padding: var(--spacing-md) var(--spacing-lg);
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.underline .tab.active {
+  border-bottom-color: var(--accent-primary);
+}
+
+/* Pills Variant */
+.pills {
+  background-color: var(--bg-tertiary);
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-lg);
+}
+
+.pills .tab {
+  border-radius: var(--radius-md);
+}
+
+.pills .tab.active {
+  background-color: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Icon */
+.icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Label */
+.label {
+  letter-spacing: -0.01em;
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+}
+
+.active .badge {
+  background-color: var(--accent-primary-light);
+  color: var(--accent-primary);
+}

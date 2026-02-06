@@ -1,0 +1,501 @@
+/* Properties Page Styles */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-lg);
+}
+
+.statsGrid4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 1024px) {
+  .statsGrid4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .statsGrid,
+  .statsGrid4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+}
+
+.searchInput {
+  max-width: 320px;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .searchInput {
+    max-width: none;
+  }
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-4xl);
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: var(--spacing-lg);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Table Cells */
+.ownerCell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.ownerName {
+  display: block;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.ownerDni {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.cellText {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+/* Building Cell */
+.buildingCell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.buildingIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(165deg, #2563EB 0%, #3B82F6 50%, #60A5FA 100%);
+  border-radius: var(--radius-md);
+  color: var(--text-inverse);
+}
+
+.buildingName {
+  display: block;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.buildingAddress {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* Unit Cell */
+.unitCell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.unitIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+
+.unitName {
+  display: block;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.unitAddress {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* Form Styles */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+@media (max-width: 640px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formFullWidth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* Delete Modal */
+.deleteText {
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.deleteWarning {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.filterSelect {
+  min-width: 160px;
+}
+
+/* Stats inline */
+.statsInline {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+}
+
+.statItem {
+  text-align: center;
+}
+
+.statValue {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* Units Header - Stats + Radial */
+.unitsHeader {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--spacing-xl);
+  align-items: start;
+}
+
+.statsGrid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 1024px) {
+  .unitsHeader {
+    grid-template-columns: 1fr;
+  }
+  
+  .statsGrid3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .statsGrid3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Form Error */
+.formError {
+  background-color: var(--status-error-light, rgba(239, 68, 68, 0.1));
+  border: 1px solid var(--status-error, #ef4444);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  color: var(--status-error, #ef4444);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-md);
+}
+
+/* Owners List - Clickable Cards */
+.ownersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.ownerCard {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ownerCard:hover {
+  background-color: var(--bg-tertiary);
+  transform: translateX(4px);
+}
+
+.ownerCardMain {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 220px;
+}
+
+.ownerCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ownerCardName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.ownerCardDni {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.ownerCardContact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1;
+}
+
+.ownerCardContactItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.ownerCardProperties {
+  min-width: 120px;
+}
+
+.ownerCardActions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.chevron {
+  color: var(--text-tertiary);
+  margin-left: var(--spacing-sm);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .ownerCard {
+    flex-wrap: wrap;
+  }
+  
+  .ownerCardContact {
+    order: 3;
+    width: 100%;
+    flex-direction: row;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-light);
+  }
+}
+
+@media (max-width: 640px) {
+  .ownerCardMain {
+    min-width: auto;
+    flex: 1;
+  }
+  
+  .ownerCardProperties {
+    display: none;
+  }
+  
+  .ownerCardContact {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+}
+
+/* Rentals List - Properties for Rent */
+.rentalsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.rentalCard {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rentalCard:hover {
+  background-color: var(--bg-tertiary);
+  transform: translateX(4px);
+}
+
+.rentalCardMain {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 240px;
+}
+
+.rentalIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: var(--radius-lg);
+  color: #3b82f6;
+}
+
+.rentalCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rentalCardName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.rentalCardAddress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.rentalCardDetails {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  flex: 1;
+}
+
+.rentalCardDetail {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.rentalCardStatus {
+  min-width: 100px;
+}
+
+.rentalCardActions {
+  display: flex;
+  align-items: center;
+}
+
+/* Responsive for rentals */
+@media (max-width: 1024px) {
+  .rentalCard {
+    flex-wrap: wrap;
+  }
+  
+  .rentalCardDetails {
+    order: 3;
+    width: 100%;
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-light);
+  }
+}
+
+@media (max-width: 640px) {
+  .rentalCardMain {
+    min-width: auto;
+    flex: 1;
+  }
+  
+  .rentalCardStatus {
+    display: none;
+  }
+  
+  .rentalCardDetails {
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+  }
+}

@@ -1,0 +1,54 @@
+/* MiniChart Component Styles */
+
+.container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
+}
+
+/* Area */
+.area {
+  opacity: 0.2;
+}
+
+.area.primary {
+  fill: var(--accent-primary);
+}
+
+.area.success {
+  fill: var(--success);
+}
+
+.area.warning {
+  fill: var(--warning);
+}
+
+.area.error {
+  fill: var(--error);
+}
+
+/* Line */
+.line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.primaryLine {
+  stroke: var(--accent-primary);
+}
+
+.successLine {
+  stroke: var(--success);
+}
+
+.warningLine {
+  stroke: var(--warning);
+}
+
+.errorLine {
+  stroke: var(--error);
+}

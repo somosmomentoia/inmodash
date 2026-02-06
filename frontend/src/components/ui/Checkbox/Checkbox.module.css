@@ -1,0 +1,78 @@
+/* Checkbox Component Styles */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.icon {
+  opacity: 0;
+  color: var(--text-inverse);
+  transform: scale(0.8);
+  transition: all var(--transition-fast);
+}
+
+.input:checked + .checkbox {
+  background: linear-gradient(165deg, #2563EB 0%, #3B82F6 50%, #60A5FA 100%);
+  border-color: transparent;
+}
+
+.input:checked + .checkbox .icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.input:focus + .checkbox {
+  box-shadow: 0 0 0 3px var(--accent-primary-light);
+}
+
+.input:disabled + .checkbox {
+  background-color: var(--bg-tertiary);
+  cursor: not-allowed;
+}
+
+/* Error State */
+.hasError {
+  border-color: var(--error);
+}
+
+/* Text */
+.text {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+/* Error Message */
+.error {
+  font-size: var(--font-size-xs);
+  color: var(--error);
+  margin-left: 26px;
+}

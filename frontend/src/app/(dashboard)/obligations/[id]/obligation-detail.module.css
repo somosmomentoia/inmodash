@@ -1,0 +1,513 @@
+/* Obligation Detail Page Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2xl);
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: #2563eb;
+  font-size: var(--font-size-sm);
+  transition: color 0.2s ease;
+}
+
+.backLink:hover {
+  color: #93c5fd;
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Colores más oscuros para mejor contraste en modo claro */
+.badgeRent { background: rgba(168, 85, 247, 0.15); color: #7c3aed; }
+.badgeExpenses { background: rgba(249, 115, 22, 0.15); color: #c2410c; }
+.badgeService { background: rgba(6, 182, 212, 0.15); color: #0891b2; }
+.badgeTax { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+.badgeInsurance { background: rgba(59, 130, 246, 0.15); color: #2563eb; }
+.badgeMaintenance { background: rgba(234, 179, 8, 0.15); color: #a16207; }
+.badgeDebt { background: rgba(107, 114, 128, 0.15); color: #4b5563; }
+.badgeDefault { background: rgba(107, 114, 128, 0.15); color: #4b5563; }
+
+.badgePending { background: rgba(234, 179, 8, 0.15); color: #a16207; }
+.badgePartial { background: rgba(59, 130, 246, 0.15); color: #2563eb; }
+.badgePaid { background: rgba(34, 197, 94, 0.15); color: #059669; }
+.badgeOverdue { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+
+.badgeRecurring { background: rgba(168, 85, 247, 0.15); color: #7c3aed; }
+.badgeManual { background: rgba(107, 114, 128, 0.15); color: #4b5563; }
+
+.payButton {
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: #16a34a;
+  color: white;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-medium);
+  transition: background 0.2s ease;
+}
+
+.payButton:hover {
+  background: #15803d;
+}
+
+/* Cards - No clickeables, sin borde degradado */
+.glassCard {
+  background-color: #FAFBFC;
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  transition: all 0.2s ease;
+}
+
+.glassCard:hover {
+  background-color: #F5F8FC;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xl);
+}
+
+.cardTitleIcon {
+  color: #059669;
+}
+
+/* Financial Summary */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-xl);
+}
+
+@media (max-width: 768px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.summaryLabel {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.summaryValue {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin-top: var(--spacing-xs);
+}
+
+.summaryValueGreen {
+  color: #059669;
+}
+
+.summaryValueRed {
+  color: #dc2626;
+}
+
+.summarySubtext {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+
+/* Progress Bar */
+.progressContainer {
+  margin-top: var(--spacing-xl);
+}
+
+.progressBar {
+  width: 100%;
+  height: 16px;
+  background-color: var(--border-light);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.progressFillComplete {
+  background: #22c55e;
+}
+
+.progressFillPartial {
+  background: #3b82f6;
+}
+
+.progressFillEmpty {
+  background-color: var(--border-medium);
+}
+
+/* Info Grid */
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid var(--border-light);
+}
+
+@media (max-width: 640px) {
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.infoLabel {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.infoValue {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-top: var(--spacing-xs);
+}
+
+/* Notes */
+.notesSection {
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid var(--border-light);
+}
+
+.notesLabel {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.notesContent {
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  color: var(--text-primary);
+}
+
+/* Payment History */
+.paymentsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.paymentItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: #FAFBFC;
+  border-radius: var(--radius-lg);
+  transition: all 0.2s ease;
+}
+
+.paymentItem:hover {
+  background-color: #F5F8FC;
+}
+
+.paymentInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.paymentIcon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34, 197, 94, 0.15);
+  border-radius: 50%;
+  color: #059669;
+}
+
+.paymentDetails {
+  display: flex;
+  flex-direction: column;
+}
+
+.paymentAmount {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.paymentDate {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.paymentMethod {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+  border-radius: 9999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.paymentReference {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.paymentNotes {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emptyPayments {
+  text-align: center;
+  padding: var(--spacing-2xl);
+  color: var(--text-tertiary);
+}
+
+/* Related Info */
+.relatedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.relatedItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: #FAFBFC;
+  border-radius: var(--radius-lg);
+  transition: all 0.2s ease;
+}
+
+.relatedItem:hover {
+  background-color: #F5F8FC;
+}
+
+.relatedInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.relatedIcon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+}
+
+.relatedIconBlue { background: rgba(59, 130, 246, 0.15); color: #2563eb; }
+.relatedIconGreen { background: rgba(34, 197, 94, 0.15); color: #059669; }
+.relatedIconPurple { background: rgba(168, 85, 247, 0.15); color: #7c3aed; }
+.relatedIconOrange { background: rgba(249, 115, 22, 0.15); color: #c2410c; }
+.relatedIconGray { background: rgba(107, 114, 128, 0.15); color: #4b5563; }
+
+.relatedDetails {
+  display: flex;
+  flex-direction: column;
+}
+
+.relatedLabel {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.relatedValue {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.relatedSubtext {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+
+.relatedLink {
+  color: #2563eb;
+  font-weight: var(--font-weight-medium);
+  transition: color 0.2s ease;
+}
+
+.relatedLink:hover {
+  color: #93c5fd;
+}
+
+.originInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.originTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.originTitlePurple {
+  color: #7c3aed;
+}
+
+.originTitleGray {
+  color: #9ca3af;
+}
+
+.originDesc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 400px;
+  background: #0f172a;
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modalTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.modalText {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modalCloseButton {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  transition: background 0.2s ease;
+}
+
+.modalCloseButton:hover {
+  background-color: var(--border-light);
+}
+
+/* Loading */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--border-light);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText {
+  margin-top: var(--spacing-md);
+  color: var(--text-secondary);
+}
+
+/* Error */
+.errorCard {
+  background: rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+}
+
+.errorText {
+  color: #fca5a5;
+}

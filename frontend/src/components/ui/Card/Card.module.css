@@ -1,0 +1,133 @@
+/* Card Component Styles */
+
+.card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 
+              0 4px 12px -2px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition-normal);
+  border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+/* Variants */
+.default {
+  background-color: var(--bg-secondary);
+}
+
+.elevated {
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.08),
+              0 8px 32px -8px rgba(0, 0, 0, 0.06);
+}
+
+.outlined {
+  background-color: transparent;
+  border: 1px solid var(--border-light);
+  box-shadow: none;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.gradient {
+  background: linear-gradient(135deg, #2563EB 0%, #3B82F6 50%, #60A5FA 100%);
+  color: var(--text-inverse);
+  border: none;
+  box-shadow: 0 4px 20px -4px rgba(59, 130, 246, 0.35);
+}
+
+.gradient .title,
+.gradient .subtitle {
+  color: var(--text-inverse);
+}
+
+.gradient .subtitle {
+  opacity: 0.8;
+}
+
+/* Hoverable */
+.hoverable {
+  cursor: pointer;
+}
+
+.hoverable:hover {
+  box-shadow: 0 8px 30px -8px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.gradient.hoverable:hover {
+  box-shadow: 0 8px 30px -4px rgba(59, 130, 246, 0.4);
+}
+
+/* Padding */
+.padding-none {
+  padding: 0;
+}
+
+.padding-sm {
+  padding: var(--spacing-md);
+}
+
+.padding-md {
+  padding: var(--spacing-xl);
+}
+
+.padding-lg {
+  padding: var(--spacing-2xl);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: var(--spacing-xs) 0 0 0;
+}
+
+.headerAction {
+  flex-shrink: 0;
+}
+
+/* Content */
+.content {
+  display: block;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border-light);
+}
+
+.gradient .footer {
+  border-top-color: rgba(255, 255, 255, 0.2);
+}

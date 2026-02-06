@@ -1,0 +1,155 @@
+/* ActionCard Component Styles */
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Color Variables */
+.blue { --action-color: #3B82F6; --action-light: #EFF6FF; --action-gradient: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%); }
+.purple { --action-color: #8B5CF6; --action-light: #F5F3FF; --action-gradient: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%); }
+.green { --action-color: #10B981; --action-light: #ECFDF5; --action-gradient: linear-gradient(135deg, #10B981 0%, #34D399 100%); }
+.orange { --action-color: #F59E0B; --action-light: #FFFBEB; --action-gradient: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%); }
+.cyan { --action-color: #06B6D4; --action-light: #ECFEFF; --action-gradient: linear-gradient(135deg, #06B6D4 0%, #22D3EE 100%); }
+
+/* Variants */
+.default {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.default:hover {
+  background: var(--action-light);
+  border-color: var(--action-color);
+  transform: translateX(4px);
+}
+
+.gradient {
+  background: var(--action-gradient);
+  color: white;
+  box-shadow: 0 4px 20px -4px color-mix(in srgb, var(--action-color) 40%, transparent);
+}
+
+.gradient:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 30px -4px color-mix(in srgb, var(--action-color) 50%, transparent);
+}
+
+.outlined {
+  background: transparent;
+  border: 2px solid var(--action-color);
+}
+
+.outlined:hover {
+  background: var(--action-light);
+  transform: translateX(4px);
+}
+
+/* Icon */
+.iconWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+.default .iconWrapper {
+  background: var(--action-light);
+  color: var(--action-color);
+}
+
+.gradient .iconWrapper {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.outlined .iconWrapper {
+  background: var(--action-light);
+  color: var(--action-color);
+}
+
+.iconWrapper svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Badge */
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: #EF4444;
+  color: white;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.gradient .badge {
+  background: white;
+  color: var(--action-color);
+}
+
+/* Content */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: inherit;
+}
+
+.default .title {
+  color: var(--text-primary);
+}
+
+.description {
+  font-size: var(--font-size-sm);
+  opacity: 0.7;
+}
+
+.default .description {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+/* Arrow */
+.arrow {
+  color: inherit;
+  opacity: 0.5;
+  transform: translateX(-4px);
+  transition: all 0.2s ease;
+}
+
+.card:hover .arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.default .arrow {
+  color: var(--action-color);
+}
