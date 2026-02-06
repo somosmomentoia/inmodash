@@ -21,6 +21,7 @@ if (config.isDevelopment) {
 }
 
 // CORS configuration - Allow multiple domains
+const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : [];
 const allowedOrigins = [
   'https://inmodash-front.vercel.app',
   'https://inmodash.com.ar',
@@ -29,7 +30,8 @@ const allowedOrigins = [
   'http://localhost:3000', // For local development
   'http://localhost:3975', // For local frontend development
   'http://localhost:3976', // For local frontend v2 development
-  'http://localhost:3977'  // For tenant portal development
+  'http://localhost:3977',  // For tenant portal development
+  ...envOrigins // Add origins from FRONTEND_URL env variable
 ];
 
 app.use(cors({
