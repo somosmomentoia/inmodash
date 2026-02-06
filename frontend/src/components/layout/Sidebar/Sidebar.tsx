@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -23,6 +23,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { useSidebar } from '@/contexts/SidebarContext'
 import styles from './Sidebar.module.css'
 
 interface NavItem {
@@ -56,8 +57,7 @@ const settingsNavItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [isPinned, setIsPinned] = useState(false)
+  const { isExpanded, isPinned, setIsExpanded, setIsPinned } = useSidebar()
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { logout } = useAuth()
 
@@ -68,7 +68,7 @@ export function Sidebar() {
       setIsPinned(true)
       setIsExpanded(true)
     }
-  }, [])
+  }, [setIsPinned, setIsExpanded])
 
   useEffect(() => {
     localStorage.setItem('sidebar-pinned', isPinned.toString())
@@ -113,11 +113,12 @@ export function Sidebar() {
   }, [isExpanded])
 
   const togglePin = useCallback(() => {
-    setIsPinned(prev => !prev)
-    if (!isPinned) {
+    const newPinned = !isPinned
+    setIsPinned(newPinned)
+    if (newPinned) {
       setIsExpanded(true)
     }
-  }, [isPinned])
+  }, [isPinned, setIsPinned, setIsExpanded])
 
   return (
     <aside 
