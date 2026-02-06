@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "ts-node src/server.ts",
-    "build": "prisma generate && tsc",
+    "build": "tsc",
     "start": "node dist/server.js",
     "prisma:deploy": "prisma migrate deploy && prisma generate",
     "prisma:generate": "prisma generate",
