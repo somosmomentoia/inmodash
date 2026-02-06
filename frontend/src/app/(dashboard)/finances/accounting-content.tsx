@@ -123,7 +123,7 @@ export default function AccountingContent() {
         description: e.description,
         type: (e.type === 'commission' || e.type === 'commission_service' || e.type === 'income_other' ? 'income' : 'expense') as 'income' | 'expense',
         category: e.type,
-        amount: e.amount,
+        amount: Number(e.amount) || 0,
         balance: 0,
         isFromDB: true,
         dbEntryId: e.id,
