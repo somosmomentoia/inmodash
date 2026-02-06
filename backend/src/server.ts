@@ -21,28 +21,31 @@ if (config.isDevelopment) {
 }
 
 // CORS configuration - Allow multiple domains
-const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : [];
+const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(o => o.trim()) : [];
 const allowedOrigins = [
   'https://inmodash-front.vercel.app',
   'https://inmodash.com.ar',
   'https://www.inmodash.com.ar',
-  'https://tenant.inmodash.com', // Tenant Portal
-  'http://localhost:3000', // For local development
-  'http://localhost:3975', // For local frontend development
-  'http://localhost:3976', // For local frontend v2 development
-  'http://localhost:3977',  // For tenant portal development
-  ...envOrigins // Add origins from FRONTEND_URL env variable
+  'https://tenant.inmodash.com',
+  'http://localhost:3000',
+  'http://localhost:3975',
+  'http://localhost:3976',
+  'http://localhost:3977',
+  ...envOrigins
 ];
+
+console.log('CORS allowed origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Allow all Vercel preview deployments
+    // Allow all Vercel preview deployments and inmodash domains
     if (origin && (
-      allowedOrigins.indexOf(origin) !== -1 || 
-      origin.endsWith('.vercel.app')
+      allowedOrigins.includes(origin) || 
+      origin.endsWith('.vercel.app') ||
+      origin.includes('inmodash')
     )) {
       callback(null, true);
     } else {
@@ -51,8 +54,8 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }))
 
 // Cookie parser
