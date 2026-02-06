@@ -33,7 +33,7 @@ function DashboardContent({ children }: DashboardLayoutProps) {
       <div className={`${styles.mainArea} ${showOverlay ? styles.mainAreaBlurred : ''}`}>
         {children}
       </div>
-      {showOverlay && <div className={styles.overlay} />}
+      <div className={`${styles.overlay} ${showOverlay ? styles.overlayVisible : ''}`} />
     </div>
   )
 }

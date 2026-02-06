@@ -28,8 +28,12 @@
   background: rgba(0, 0, 0, 0.1);
   z-index: calc(var(--z-sticky) - 1);
   pointer-events: none;
-  opacity: 1;
+  opacity: 0;
   transition: opacity 200ms ease;
+}
+
+.overlayVisible {
+  opacity: 1;
 }
 
 /* Loading state for auth check */
