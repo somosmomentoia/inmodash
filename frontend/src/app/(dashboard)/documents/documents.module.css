@@ -775,6 +775,82 @@
   font-size: var(--font-size-sm);
 }
 
+/* Empty Folder */
+.emptyFolder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-4xl) var(--spacing-xl);
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.emptyFolder h4 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.emptyFolder p {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* Upload Form */
+.uploadForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.uploadArea {
+  position: relative;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.uploadArea:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fileInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.uploadPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+}
+
+.uploadPlaceholder p {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.uploadPlaceholder span {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .fileManager {

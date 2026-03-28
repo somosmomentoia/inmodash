@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -35,6 +35,8 @@ import {
 import { useContracts } from '@/hooks/useContracts'
 import { useApartments } from '@/hooks/useApartments'
 import { useTenants } from '@/hooks/useTenants'
+import { usePermissions } from '@/hooks/usePermissions'
+import { PermissionGuard } from '@/components/permissions/PermissionGuard'
 import styles from './contracts.module.css'
 
 type ContractFilter = 'all' | 'active' | 'expiring' | 'expired'
@@ -44,6 +46,7 @@ export default function ContractsContent() {
   const { contracts, loading: contractsLoading } = useContracts()
   const { apartments } = useApartments()
   const { tenants } = useTenants()
+  const { hasPermission } = usePermissions()
   const [activeTab, setActiveTab] = useState<ContractFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -107,6 +110,46 @@ export default function ContractsContent() {
   const activeCount = contracts.filter((c) => getContractStatus(c) === 'active').length
   const expiringCount = contracts.filter((c) => getContractStatus(c) === 'expiring').length
   const expiredCount = contracts.filter((c) => getContractStatus(c) === 'expired').length
+
+  const quickActions = useMemo(() => {
+    const actions = []
+    if (hasPermission('contracts', 'create')) {
+      actions.push({
+        id: 'new-contract',
+        icon: <Plus />,
+        label: 'Nuevo Contrato',
+        color: 'blue' as const,
+        onClick: () => router.push('/contracts/new'),
+      })
+    }
+    if (hasPermission('settings', 'view')) {
+      actions.push({
+        id: 'commissions',
+        icon: <Settings />,
+        label: 'Configurar Comisiones',
+        color: 'purple' as const,
+        onClick: () => router.push('/settings'),
+      })
+    }
+    if (hasPermission('reports', 'view')) {
+      actions.push({
+        id: 'reports',
+        icon: <BarChart3 />,
+        label: 'Generar Reportes',
+        color: 'green' as const,
+        onClick: () => console.log('Generar reportes'),
+      })
+    }
+    actions.push({
+      id: 'expirations',
+      icon: <CalendarClock />,
+      label: 'Ver Vencimientos',
+      color: 'orange' as const,
+      badge: expiringCount > 0 ? expiringCount : undefined,
+      onClick: () => setActiveTab('expiring'),
+    })
+    return actions
+  }, [hasPermission, expiringCount, router])
 
   const filterTabs = [
     { id: 'all', label: 'Todos', badge: contracts.length },
@@ -180,37 +223,7 @@ export default function ContractsContent() {
         title="Acciones Rápidas"
         columns={4}
         variant="compact"
-        items={[
-          {
-            id: 'new-contract',
-            icon: <Plus />,
-            label: 'Nuevo Contrato',
-            color: 'blue',
-            onClick: () => router.push('/contracts/new'),
-          },
-          {
-            id: 'commissions',
-            icon: <Settings />,
-            label: 'Configurar Comisiones',
-            color: 'purple',
-            onClick: () => router.push('/settings'),
-          },
-          {
-            id: 'reports',
-            icon: <BarChart3 />,
-            label: 'Generar Reportes',
-            color: 'green',
-            onClick: () => console.log('Generar reportes'),
-          },
-          {
-            id: 'expirations',
-            icon: <CalendarClock />,
-            label: 'Ver Vencimientos',
-            color: 'orange',
-            badge: expiringCount > 0 ? expiringCount : undefined,
-            onClick: () => setActiveTab('expiring'),
-          },
-        ]}
+        items={quickActions}
       />
 
       {/* Alertas de contratos */}

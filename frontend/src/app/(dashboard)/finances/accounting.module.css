@@ -92,7 +92,7 @@
 
 .movementsHeader {
   display: grid;
-  grid-template-columns: 80px 1fr 120px 120px 120px 120px;
+  grid-template-columns: 110px 1fr 120px 120px 120px 120px;
   gap: var(--spacing-md);
   padding: var(--spacing-sm) var(--spacing-md);
   background-color: var(--bg-tertiary);
@@ -106,7 +106,7 @@
 
 .movementRow {
   display: grid;
-  grid-template-columns: 80px 1fr 120px 120px 120px 120px;
+  grid-template-columns: 110px 1fr 120px 120px 120px 120px;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   border-bottom: 1px solid var(--border-light);

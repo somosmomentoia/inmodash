@@ -227,28 +227,3 @@ export const generateObligations = async (req: Request, res: Response, next: Nex
   }
 }
 
-// ============================================================================
-// OWNER BALANCE RECALCULATION
-// ============================================================================
-
-export const recalculateOwnerBalance = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user!.userId
-    const { ownerId } = req.params
-    
-    const result = await obligationsService.recalculateOwnerBalance(parseInt(ownerId), userId)
-    res.json(result)
-  } catch (error) {
-    next(error)
-  }
-}
-
-export const recalculateAllOwnerBalances = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user!.userId
-    const results = await obligationsService.recalculateAllOwnerBalances(userId)
-    res.json(results)
-  } catch (error) {
-    next(error)
-  }
-}

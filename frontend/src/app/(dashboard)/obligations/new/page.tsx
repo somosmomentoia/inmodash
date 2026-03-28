@@ -6,7 +6,6 @@ import Link from 'next/link'
 import {
   ArrowLeft,
   Receipt,
-  Wrench,
   Shield,
   FileText,
   ChevronDown,
@@ -14,9 +13,8 @@ import {
   AlertCircle,
   Repeat,
   Check,
-  Building2,
-  Briefcase,
-  Info,
+  Zap,
+  User,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout'
 import {
@@ -29,99 +27,51 @@ import {
 } from '@/components/ui'
 import { useObligations } from '@/hooks/useObligations'
 import { useApartments } from '@/hooks/useApartments'
-import { ObligationType, PaidBy } from '@/types'
+import { ObligationType } from '@/types'
 import styles from './new-obligation.module.css'
 
-// Configuración por tipo de obligación
-// Define quién paga por defecto y si se puede cambiar
-// Tipos de obligación disponibles para cargar manualmente
+// Tipos de obligación disponibles en Cuenta Corriente (vista del inquilino)
 // NOTA: Los alquileres (rent) se generan automáticamente con los contratos
-// NOTA: Las expensas fueron removidas - solo aplican a inquilinos y se manejan fuera del sistema
+// NOTA: Todo lo creado desde acá es paidBy='tenant', chargeTo='tenant'
 const OBLIGATION_TYPES: {
   value: ObligationType
   label: string
   icon: typeof Receipt
   description: string
   color: string
-  defaultPaidBy: PaidBy
-  showPaidBySelector: boolean
-  allowedPaidBy?: PaidBy[]
-  impactMessages: Record<PaidBy, string>
+  hint: string
 }[] = [
+  {
+    value: 'expenses',
+    label: 'Expensas',
+    icon: Receipt,
+    description: 'Expensas ordinarias y extraordinarias',
+    color: 'green',
+    hint: 'Se registra como deuda del inquilino. No afecta liquidaciones.',
+  },
   {
     value: 'service',
     label: 'Servicio',
-    icon: Wrench,
+    icon: Zap,
     description: 'Luz, agua, gas, internet, etc.',
     color: 'cyan',
-    defaultPaidBy: 'owner',
-    showPaidBySelector: true,
-    allowedPaidBy: ['owner', 'agency'],
-    impactMessages: {
-      tenant: '', // No permitido
-      owner: 'Se descuenta de la liquidación del propietario.',
-      agency: 'La inmobiliaria asume el gasto.',
-    },
-  },
-  {
-    value: 'tax',
-    label: 'Impuesto',
-    icon: Receipt,
-    description: 'ABL, ARBA, inmobiliario, etc.',
-    color: 'red',
-    defaultPaidBy: 'owner',
-    showPaidBySelector: false,
-    allowedPaidBy: ['owner'],
-    impactMessages: {
-      tenant: '', // No permitido
-      owner: 'Se descuenta de la liquidación del propietario.',
-      agency: '', // No permitido
-    },
+    hint: 'Se registra como deuda del inquilino. No afecta liquidaciones.',
   },
   {
     value: 'insurance',
     label: 'Seguro',
     icon: Shield,
-    description: 'Seguro de incendio, integral, etc.',
+    description: 'Seguro de caución, incendio, etc.',
     color: 'blue',
-    defaultPaidBy: 'owner',
-    showPaidBySelector: true,
-    allowedPaidBy: ['owner', 'agency'],
-    impactMessages: {
-      tenant: '', // No permitido
-      owner: 'Se descuenta de la liquidación del propietario.',
-      agency: 'La inmobiliaria asume el gasto.',
-    },
-  },
-  {
-    value: 'maintenance',
-    label: 'Mantenimiento',
-    icon: Wrench,
-    description: 'Reparaciones y arreglos',
-    color: 'yellow',
-    defaultPaidBy: 'owner',
-    showPaidBySelector: true,
-    allowedPaidBy: ['owner', 'agency'],
-    impactMessages: {
-      tenant: '', // No permitido
-      owner: 'Se descuenta de la liquidación del propietario.',
-      agency: 'La inmobiliaria asume el gasto (no afecta propietario).',
-    },
+    hint: 'Se registra como deuda del inquilino. No afecta liquidaciones.',
   },
   {
     value: 'debt',
-    label: 'Ajuste / Crédito',
+    label: 'Deuda / Ajuste',
     icon: FileText,
-    description: 'Ajustes a favor del propietario',
-    color: 'gray',
-    defaultPaidBy: 'agency',
-    showPaidBySelector: false,
-    allowedPaidBy: ['agency'],
-    impactMessages: {
-      tenant: '', // No permitido
-      owner: '', // No permitido
-      agency: 'Ajuste a favor del propietario. Se suma al saldo del propietario.',
-    },
+    description: 'Diferencias, multas, ajustes',
+    color: 'red',
+    hint: 'Deuda del inquilino a cobrar por la inmobiliaria.',
   },
 ]
 
@@ -132,13 +82,6 @@ const SERVICE_CATEGORIES = [
   { value: 'internet', label: 'Internet / Cable' },
   { value: 'telefono', label: 'Teléfono' },
   { value: 'otro', label: 'Otro servicio' },
-]
-
-const TAX_CATEGORIES = [
-  { value: 'abl', label: 'ABL' },
-  { value: 'arba', label: 'ARBA' },
-  { value: 'inmobiliario', label: 'Impuesto Inmobiliario' },
-  { value: 'otro', label: 'Otro impuesto' },
 ]
 
 const INSURANCE_CATEGORIES = [
@@ -168,7 +111,6 @@ export default function CreateObligationPage() {
   const [category, setCategory] = useState('')
   const [period, setPeriod] = useState('')
   const [notes, setNotes] = useState('')
-  const [paidBy, setPaidBy] = useState<PaidBy>('owner')
 
   // Recurrence
   const [isRecurring, setIsRecurring] = useState(false)
@@ -186,8 +128,6 @@ export default function CreateObligationPage() {
     switch (selectedType) {
       case 'service':
         return SERVICE_CATEGORIES
-      case 'tax':
-        return TAX_CATEGORIES
       case 'insurance':
         return INSURANCE_CATEGORIES
       default:
@@ -198,11 +138,8 @@ export default function CreateObligationPage() {
   const handleTypeSelect = (type: ObligationType) => {
     setSelectedType(type)
     const config = OBLIGATION_TYPES.find((t) => t.value === type)
-    if (config) {
-      setPaidBy(config.defaultPaidBy)
-      if (!description) {
-        setDescription(config.label)
-      }
+    if (config && !description) {
+      setDescription(config.label)
     }
   }
 
@@ -218,23 +155,11 @@ export default function CreateObligationPage() {
     try {
       const amountNum = parseFloat(amount)
 
-      // Calculate ownerImpact and agencyImpact based on paidBy and type
-      // NOTA: Ya no hay opción de inquilino, solo propietario o inmobiliaria
-      let ownerImpact = 0
-      let agencyImpact = 0
-      
-      if (selectedType === 'debt') {
-        // Ajuste/Crédito: Solo inmobiliaria puede crear (a favor del propietario)
-        ownerImpact = amountNum // Owner receives credit
-        agencyImpact = -amountNum // Agency pays
-      } else {
-        // Obligaciones regulares (servicios, impuestos, seguros, mantenimiento)
-        if (paidBy === 'owner') {
-          ownerImpact = -amountNum // Se descuenta de liquidación del propietario
-        } else if (paidBy === 'agency') {
-          agencyImpact = -amountNum // Gasto de la inmobiliaria
-        }
-      }
+      // Cuenta Corriente: todo es a cargo del inquilino
+      // ownerImpact=0, agencyImpact=0 para expenses/service/insurance (solo tracking)
+      // debt: agencyImpact=+amount (la inmobiliaria cobra al inquilino)
+      const ownerImpact = 0
+      const agencyImpact = selectedType === 'debt' ? amountNum : 0
 
       const basePayload: Record<string, unknown> = {
         apartmentId: parseInt(apartmentId),
@@ -243,9 +168,11 @@ export default function CreateObligationPage() {
         description,
         period: period || new Date().toISOString(),
         amount: amountNum,
-        paidBy,
+        paidBy: 'tenant',
+        chargeTo: 'tenant',
         ownerImpact,
         agencyImpact,
+        origin: 'tenant_ledger',
         notes: notes || undefined,
       }
       
@@ -290,7 +217,6 @@ export default function CreateObligationPage() {
     setCategory('')
     setPeriod('')
     setNotes('')
-    setPaidBy('owner')
     setIsRecurring(false)
     setDayOfMonth('')
     setStartDate('')
@@ -385,42 +311,7 @@ export default function CreateObligationPage() {
           </CardContent>
         </Card>
 
-        {/* Step 2: Who Pays - Only show if type allows selection */}
-        {selectedType && typeConfig?.showPaidBySelector && (
-          <Card>
-            <CardHeader title="¿Quién paga esta obligación?" />
-            <CardContent>
-              <div className={styles.paidBySelector}>
-                {/* Owner option */}
-                {typeConfig.allowedPaidBy?.includes('owner') && (
-                  <button
-                    type="button"
-                    onClick={() => setPaidBy('owner')}
-                    className={`${styles.paidByOption} ${paidBy === 'owner' ? styles.paidByOptionActive : ''}`}
-                  >
-                    <Briefcase size={20} />
-                    <span>Propietario</span>
-                    <small className={styles.paidByHint}>Se descuenta de liquidación</small>
-                  </button>
-                )}
-                {/* Agency option */}
-                {typeConfig.allowedPaidBy?.includes('agency') && (
-                  <button
-                    type="button"
-                    onClick={() => setPaidBy('agency')}
-                    className={`${styles.paidByOption} ${paidBy === 'agency' ? styles.paidByOptionActive : ''}`}
-                  >
-                    <Building2 size={20} />
-                    <span>Inmobiliaria</span>
-                    <small className={styles.paidByHint}>Gasto de la inmobiliaria</small>
-                  </button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 3: Where to apply */}
+        {/* Step 2: Where to apply */}
         {selectedType && (
           <Card>
             <CardHeader title="¿Dónde aplica?" />
@@ -446,8 +337,8 @@ export default function CreateObligationPage() {
         {/* Impact Message */}
         {selectedType && apartmentId && typeConfig && (
           <div className={styles.impactMessage}>
-            <Info size={18} />
-            <p>{typeConfig.impactMessages[paidBy]}</p>
+            <User size={14} />
+            <p>{typeConfig.hint}</p>
           </div>
         )}
 

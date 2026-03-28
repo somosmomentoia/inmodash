@@ -1,5 +1,6 @@
 import prisma from '../config/database'
 import { CreateDocumentDto, UpdateDocumentDto } from '../types'
+import { storageService } from './storage.service'
 
 export const getAll = async (userId: number) => {
   return await prisma.document.findMany({
@@ -86,6 +87,7 @@ export const create = async (data: CreateDocumentDto, userId: number) => {
       type: data.type,
       fileName: data.fileName,
       fileUrl: data.fileUrl,
+      storageKey: data.storageKey,
       fileSize: data.fileSize,
       mimeType: data.mimeType,
       description: data.description,
@@ -127,6 +129,11 @@ export const remove = async (id: number, userId: number) => {
   const document = await getById(id, userId)
   if (!document) {
     throw new Error('Document not found or access denied')
+  }
+
+  // Delete file from storage (R2 or local)
+  if (document.storageKey) {
+    await storageService.deleteFile(document.storageKey)
   }
   
   return await prisma.document.delete({

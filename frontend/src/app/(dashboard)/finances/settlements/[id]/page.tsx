@@ -14,15 +14,18 @@ import {
   Clock,
   Download,
   Printer,
+  Percent,
+  ArrowDownRight,
+  ArrowUpRight,
+  Wallet,
+  AlertTriangle,
+  RefreshCw,
+  SkipForward,
+  Unlock,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout'
 import {
   Button,
-  Card,
-  CardHeader,
-  CardContent,
-  Badge,
-  Avatar,
   Modal,
   ModalFooter,
   Input,
@@ -55,8 +58,15 @@ const getObligationTypeLabel = (type: string): string => {
     insurance: 'Seguro',
     maintenance: 'Mantenimiento',
     debt: 'Ajuste/Deuda',
+    income_other: 'Otro Ingreso',
+    expense_other: 'Otro Egreso',
   }
   return labels[type] || type
+}
+
+// Get initials from name
+const getInitials = (name: string) => {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
 export default function SettlementDetailPage() {
@@ -81,29 +91,30 @@ export default function SettlementDetailPage() {
   // Estado de la liquidación desde la BD
   const [existingSettlement, setExistingSettlement] = useState<SettlementFromDB | null>(null)
   const [loadingSettlement, setLoadingSettlement] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const loadSettlement = async () => {
+    if (!period || !ownerId) return
+    setLoadingSettlement(true)
+    try {
+      const allSettlements = await settlementsService.getAll()
+      const [year, month] = period.split('-').map(Number)
+      const found = allSettlements.find(s => {
+        const sPeriod = new Date(s.period)
+        return s.ownerId === ownerId && 
+               sPeriod.getUTCFullYear() === year && 
+               sPeriod.getUTCMonth() + 1 === month
+      })
+      setExistingSettlement(found || null)
+    } catch (error) {
+      console.error('Error loading settlement:', error)
+    } finally {
+      setLoadingSettlement(false)
+    }
+  }
 
   // Cargar liquidación existente de la BD
   useEffect(() => {
-    const loadSettlement = async () => {
-      if (!period || !ownerId) return
-      setLoadingSettlement(true)
-      try {
-        const allSettlements = await settlementsService.getAll()
-        const [year, month] = period.split('-').map(Number)
-        const found = allSettlements.find(s => {
-          const sPeriod = new Date(s.period)
-          // Usar UTC para evitar problemas de timezone
-          return s.ownerId === ownerId && 
-                 sPeriod.getUTCFullYear() === year && 
-                 sPeriod.getUTCMonth() + 1 === month
-        })
-        setExistingSettlement(found || null)
-      } catch (error) {
-        console.error('Error loading settlement:', error)
-      } finally {
-        setLoadingSettlement(false)
-      }
-    }
     loadSettlement()
   }, [period, ownerId])
 
@@ -116,14 +127,12 @@ export default function SettlementDetailPage() {
 
     // Filter obligations for this owner and period
     const ownerObligations: Obligation[] = obligations.filter((ob) => {
-      // Check if obligation is in the selected period using UTC to avoid timezone issues
       const obligationDate = new Date(ob.period)
       const obYear = obligationDate.getUTCFullYear()
       const obMonth = obligationDate.getUTCMonth() + 1
       
       if (obYear !== year || obMonth !== month) return false
 
-      // Get owner ID from apartment (direct or via contract)
       const apartment = ob.apartment || ob.contract?.apartment
       const obOwnerId = apartment?.ownerId || apartment?.owner?.id
       
@@ -136,36 +145,31 @@ export default function SettlementDetailPage() {
     let totalExpenses = 0
     let commissionAmount = 0
 
-    // Get unique apartments for this owner
     const apartmentIds = new Set<number>()
 
     ownerObligations.forEach((ob) => {
       if (ob.apartmentId) apartmentIds.add(ob.apartmentId)
       
-      // Get property name
       const apartment = ob.apartment || ob.contract?.apartment
       const propertyName = apartment?.nomenclature || apartment?.fullAddress || 'Sin propiedad'
 
-      // Only count PAID obligations in settlements
       if (ob.status !== 'paid') return
 
-      // ownerImpact > 0 means income for owner (rent payments, credits)
-      // ownerImpact < 0 means expense for owner (taxes, maintenance, etc.)
       if (ob.ownerImpact > 0) {
-        totalIncome += ob.ownerImpact
+        const grossAmount = ob.agencyImpact > 0 ? ob.ownerImpact + ob.agencyImpact : ob.ownerImpact
+        totalIncome += grossAmount
         movements.push({
           id: ob.id,
           type: 'income',
           category: getObligationTypeLabel(ob.type),
           description: ob.description,
-          amount: ob.ownerImpact,
+          amount: grossAmount,
           date: new Date(ob.period),
           property: propertyName,
           obligationId: ob.id,
         })
-        // Commission is calculated on rent income only
-        if (ob.type === 'rent') {
-          commissionAmount += ob.commissionAmount || 0
+        if (ob.agencyImpact > 0) {
+          commissionAmount += ob.agencyImpact
         }
       } else if (ob.ownerImpact < 0) {
         totalExpenses += Math.abs(ob.ownerImpact)
@@ -195,13 +199,11 @@ export default function SettlementDetailPage() {
       netAmount,
       commissionAmount,
       commissionRate,
-      // Usar el estado de la BD si existe, sino 'pending'
-      status: existingSettlement?.status || 'pending',
+      status: (existingSettlement?.status as 'draft' | 'settled' | 'stale') || 'draft',
       settledAt: existingSettlement?.settledAt,
       paymentMethod: existingSettlement?.paymentMethod,
       movements,
       propertyCount: apartmentIds.size || 0,
-      balance: owner.balance || 0,
     }
   }, [owner, obligations, ownerId, period, existingSettlement])
 
@@ -213,14 +215,6 @@ export default function SettlementDetailPage() {
     }).format(amount)
   }
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  }
-
   const formatPeriod = () => {
     if (!period) return ''
     const [year, month] = period.split('-')
@@ -228,36 +222,86 @@ export default function SettlementDetailPage() {
     return date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
   }
 
+  const formatPeriodShort = () => {
+    if (!period) return ''
+    const [year, month] = period.split('-')
+    const date = new Date(Number(year), Number(month) - 1)
+    const str = date.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })
+    return str.charAt(0).toUpperCase() + str.slice(1)
+  }
+
   const handleSettle = async () => {
     if (!settlement) return
     
     setSettling(true)
     try {
-      // 1. Crear/actualizar la liquidación en la BD
       const created = await settlementsService.create({
         ownerId: settlement.ownerId,
         period: period,
         totalCollected: settlement.totalIncome,
         ownerAmount: settlement.netAmount,
         commissionAmount: settlement.commissionAmount,
+        deductions: settlement.totalExpenses,
         notes: settleForm.notes || undefined,
       })
 
-      // 2. Marcar como liquidada
       const settled = await settlementsService.markAsSettled(created.id, {
         paymentMethod: settleForm.paymentMethod,
         reference: settleForm.reference || undefined,
         notes: settleForm.notes || undefined,
       })
 
-      // 3. Actualizar el estado local
-      setExistingSettlement(settled)
+      await loadSettlement()
       setShowSettleModal(false)
     } catch (error) {
       console.error('Error al liquidar:', error)
       alert('Error al registrar la liquidación')
     } finally {
       setSettling(false)
+    }
+  }
+
+  const handleRecalculate = async () => {
+    if (!existingSettlement) return
+    setActionLoading(true)
+    try {
+      await settlementsService.recalculate(existingSettlement.id)
+      await loadSettlement()
+    } catch (error) {
+      console.error('Error al recalcular:', error)
+      alert('Error al recalcular la liquidación')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleDismissStale = async () => {
+    if (!existingSettlement) return
+    setActionLoading(true)
+    try {
+      const result = await settlementsService.dismissStale(existingSettlement.id)
+      alert(`Se movieron ${result.movedObligations} obligaciones al próximo período.`)
+      await loadSettlement()
+    } catch (error) {
+      console.error('Error al ignorar:', error)
+      alert('Error al procesar')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleReopen = async () => {
+    if (!existingSettlement) return
+    if (!confirm('¿Reabrir esta liquidación? Volverá a estado borrador y podrás recalcularla.')) return
+    setActionLoading(true)
+    try {
+      await settlementsService.markAsPending(existingSettlement.id)
+      await loadSettlement()
+    } catch (error) {
+      console.error('Error al reabrir:', error)
+      alert('Error al reabrir la liquidación')
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -287,6 +331,12 @@ export default function SettlementDetailPage() {
   const incomeMovements = settlement.movements.filter((m) => m.type === 'income')
   const expenseMovements = settlement.movements.filter((m) => m.type === 'expense')
 
+  // Waterfall percentages for visual bar
+  const waterfallTotal = settlement.totalIncome || 1
+  const expensePct = (settlement.totalExpenses / waterfallTotal) * 100
+  const commissionPct = (settlement.commissionAmount / waterfallTotal) * 100
+  const netPct = Math.max(0, 100 - expensePct - commissionPct)
+
   return (
     <DashboardLayout title={`Liquidación - ${formatPeriod()}`} subtitle={owner.name}>
       <div className={styles.container}>
@@ -298,196 +348,312 @@ export default function SettlementDetailPage() {
           </Link>
 
           <div className={styles.headerActions}>
-            <Button variant="secondary" leftIcon={<Printer size={16} />}>
+            <Button variant="secondary" leftIcon={<Printer size={16} />} size="sm">
               Imprimir
             </Button>
-            <Button variant="secondary" leftIcon={<Download size={16} />}>
+            <Button variant="secondary" leftIcon={<Download size={16} />} size="sm">
               Exportar PDF
             </Button>
-            {settlement.status === 'pending' && (
-              <Button onClick={() => setShowSettleModal(true)}>
-                Registrar Liquidación
-              </Button>
-            )}
           </div>
         </div>
 
-        {/* Owner Info + Summary */}
-        <div className={styles.topSection}>
-          <div className={styles.ownerCard}>
-            <Avatar name={owner.name} size="lg" />
-            <div className={styles.ownerInfo}>
-              <h2 className={styles.ownerName}>{owner.name}</h2>
-              <div className={styles.ownerMeta}>
-                <span><Building2 size={14} /> {settlement.propertyCount} propiedades</span>
-                <span><Calendar size={14} /> {formatPeriod()}</span>
+        {/* Hero Section */}
+        <div className={styles.heroSection}>
+          {/* Dark header with owner info */}
+          <div className={styles.heroTop}>
+            <div className={styles.heroOwner}>
+              <div className={styles.heroAvatar}>
+                {getInitials(owner.name)}
               </div>
-              {settlement.status === 'pending' ? (
-                <Badge variant="warning">Pendiente de liquidar</Badge>
-              ) : (
-                <Badge variant="success">Liquidado</Badge>
+              <div className={styles.heroOwnerInfo}>
+                <h1 className={styles.heroOwnerName}>{owner.name}</h1>
+                <div className={styles.heroOwnerMeta}>
+                  <span><Building2 size={14} /> {settlement.propertyCount} {settlement.propertyCount === 1 ? 'propiedad' : 'propiedades'}</span>
+                  <span><Calendar size={14} /> {formatPeriodShort()}</span>
+                </div>
+              </div>
+            </div>
+            <div className={styles.heroStatus}>
+              {settlement.status === 'draft' && (
+                <div className={styles.statusBadgePending}>
+                  <span className={styles.statusDot} />
+                  Pendiente de liquidar
+                </div>
+              )}
+              {settlement.status === 'settled' && (
+                <div className={styles.statusBadgeSettled}>
+                  <CheckCircle size={14} />
+                  Liquidado
+                </div>
+              )}
+              {settlement.status === 'stale' && (
+                <div className={styles.statusBadgePending} style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>
+                  <AlertTriangle size={14} />
+                  Desactualizada
+                </div>
               )}
             </div>
           </div>
 
-          <div className={styles.summaryCards}>
-            <div className={`${styles.summaryCard} ${styles.summaryCardGreen}`}>
-              <TrendingUp size={20} />
-              <div>
-                <span className={styles.summaryLabel}>Total Ingresos</span>
-                <span className={styles.summaryAmount}>{formatCurrency(settlement.totalIncome)}</span>
-              </div>
+          {/* Metrics bar */}
+          <div className={styles.metricsBar}>
+            <div className={styles.metricItem}>
+              <span className={styles.metricLabel}>Ingresos Cobrados</span>
+              <span className={`${styles.metricValue} ${styles.metricValueGreen}`}>
+                {formatCurrency(settlement.totalIncome)}
+              </span>
+              <span className={styles.metricSubtext}>{incomeMovements.length} movimiento{incomeMovements.length !== 1 ? 's' : ''}</span>
             </div>
-            <div className={`${styles.summaryCard} ${styles.summaryCardRed}`}>
-              <TrendingDown size={20} />
-              <div>
-                <span className={styles.summaryLabel}>Total Gastos</span>
-                <span className={styles.summaryAmount}>{formatCurrency(settlement.totalExpenses)}</span>
-              </div>
+            <div className={styles.metricItem}>
+              <span className={styles.metricLabel}>Deducciones</span>
+              <span className={`${styles.metricValue} ${styles.metricValueRed}`}>
+                -{formatCurrency(settlement.totalExpenses)}
+              </span>
+              <span className={styles.metricSubtext}>{expenseMovements.length} gasto{expenseMovements.length !== 1 ? 's' : ''}</span>
             </div>
-            <div className={`${styles.summaryCard} ${styles.summaryCardBlue}`}>
-              <DollarSign size={20} />
-              <div>
-                <span className={styles.summaryLabel}>Comisión ({(settlement.commissionRate * 100).toFixed(0)}%)</span>
-                <span className={styles.summaryAmount}>{formatCurrency(settlement.commissionAmount)}</span>
-              </div>
+            <div className={styles.metricItem}>
+              <span className={styles.metricLabel}>Honorarios ({(settlement.commissionRate * 100).toFixed(0)}%)</span>
+              <span className={`${styles.metricValue} ${styles.metricValueBlue}`}>
+                -{formatCurrency(settlement.commissionAmount)}
+              </span>
+              <span className={styles.metricSubtext}>Comisión inmobiliaria</span>
             </div>
-            <div className={`${styles.summaryCard} ${styles.summaryCardPrimary}`}>
-              <CheckCircle size={20} />
-              <div>
-                <span className={styles.summaryLabel}>Neto a Liquidar</span>
-                <span className={styles.summaryAmount}>{formatCurrency(settlement.netAmount)}</span>
-              </div>
+            <div className={`${styles.metricItem} ${styles.metricItemNet}`}>
+              <span className={styles.metricLabel}>Neto a Liquidar</span>
+              <span className={styles.metricValueNet}>
+                {formatCurrency(settlement.netAmount)}
+              </span>
+              <span className={styles.metricSubtext}>Para el propietario</span>
             </div>
           </div>
         </div>
 
-        {/* Saldo del propietario */}
-        {settlement.balance !== 0 && (
-          <div className={styles.balanceAlert}>
-            <DollarSign size={18} />
-            <span>
-              Saldo acumulado del propietario: <strong>{formatCurrency(settlement.balance)}</strong>
-              {settlement.balance > 0 && ' (a favor del propietario)'}
-              {settlement.balance < 0 && ' (a favor de la inmobiliaria)'}
-            </span>
-          </div>
-        )}
-
-        {/* Movements */}
-        <div className={styles.movementsGrid}>
-          {/* Ingresos */}
-          <Card>
-            <CardHeader
-              title="Ingresos"
-              subtitle={`${incomeMovements.length} movimientos`}
-              action={
-                <span className={styles.totalBadgeGreen}>
-                  +{formatCurrency(settlement.totalIncome)}
-                </span>
-              }
-            />
-            <CardContent>
-              <div className={styles.movementsList}>
-                {incomeMovements.map((movement) => (
-                  <div key={movement.id} className={styles.movementItem}>
-                    <div className={styles.movementInfo}>
-                      <span className={styles.movementCategory}>{movement.category}</span>
-                      <span className={styles.movementDescription}>{movement.description}</span>
-                      {movement.property && (
-                        <span className={styles.movementProperty}>
-                          <Building2 size={12} /> {movement.property}
-                        </span>
-                      )}
+        {/* Content Grid: Blocks + Sidebar */}
+        <div className={styles.contentGrid}>
+          {/* Left: Movement blocks */}
+          <div className={styles.blocksContainer}>
+            {/* Ingresos Cobrados */}
+            {incomeMovements.length > 0 && (
+              <div className={styles.sectionBlock}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <div className={`${styles.sectionIcon} ${styles.sectionIconGreen}`}>
+                      <ArrowUpRight size={18} />
                     </div>
-                    <div className={styles.movementRight}>
+                    <div className={styles.sectionTitleGroup}>
+                      <h3 className={styles.sectionTitle}>Ingresos Cobrados</h3>
+                      <span className={styles.sectionSubtitle}>{incomeMovements.length} movimiento{incomeMovements.length !== 1 ? 's' : ''} en el período</span>
+                    </div>
+                  </div>
+                  <span className={`${styles.sectionTotal} ${styles.sectionTotalGreen}`}>
+                    +{formatCurrency(settlement.totalIncome)}
+                  </span>
+                </div>
+                <div className={styles.movementsList}>
+                  {incomeMovements.map((movement) => (
+                    <div key={movement.id} className={styles.movementItem}>
+                      <div className={styles.movementLeft}>
+                        <div className={`${styles.movementDot} ${styles.movementDotGreen}`} />
+                        <div className={styles.movementInfo}>
+                          <span className={styles.movementDescription}>{movement.description}</span>
+                          <div className={styles.movementMeta}>
+                            <span className={`${styles.movementCategory} ${styles.movementCategoryGreen}`}>
+                              {movement.category}
+                            </span>
+                            {movement.property && (
+                              <span><Building2 size={11} /> {movement.property}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                       <span className={`${styles.movementAmount} ${styles.movementAmountGreen}`}>
                         +{formatCurrency(movement.amount)}
                       </span>
-                      <span className={styles.movementDate}>{formatDate(movement.date)}</span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            )}
 
-          {/* Gastos */}
-          <Card>
-            <CardHeader
-              title="Gastos y Deducciones"
-              subtitle={`${expenseMovements.length} movimientos`}
-              action={
-                <span className={styles.totalBadgeRed}>
-                  -{formatCurrency(settlement.totalExpenses)}
-                </span>
-              }
-            />
-            <CardContent>
-              <div className={styles.movementsList}>
-                {expenseMovements.map((movement) => (
-                  <div key={movement.id} className={styles.movementItem}>
-                    <div className={styles.movementInfo}>
-                      <span className={styles.movementCategory}>{movement.category}</span>
-                      <span className={styles.movementDescription}>{movement.description}</span>
-                      {movement.property && (
-                        <span className={styles.movementProperty}>
-                          <Building2 size={12} /> {movement.property}
-                        </span>
-                      )}
+            {/* Gastos Imputados */}
+            {expenseMovements.length > 0 && (
+              <div className={styles.sectionBlock}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <div className={`${styles.sectionIcon} ${styles.sectionIconRed}`}>
+                      <ArrowDownRight size={18} />
                     </div>
-                    <div className={styles.movementRight}>
-                      <span className={`${styles.movementAmount} ${movement.amount < 0 ? styles.movementAmountGreen : styles.movementAmountRed}`}>
-                        {movement.amount < 0 ? '+' : '-'}{formatCurrency(Math.abs(movement.amount))}
+                    <div className={styles.sectionTitleGroup}>
+                      <h3 className={styles.sectionTitle}>Gastos Imputados</h3>
+                      <span className={styles.sectionSubtitle}>{expenseMovements.length} deducción{expenseMovements.length !== 1 ? 'es' : ''} del propietario</span>
+                    </div>
+                  </div>
+                  <span className={`${styles.sectionTotal} ${styles.sectionTotalRed}`}>
+                    -{formatCurrency(settlement.totalExpenses)}
+                  </span>
+                </div>
+                <div className={styles.movementsList}>
+                  {expenseMovements.map((movement) => (
+                    <div key={movement.id} className={styles.movementItem}>
+                      <div className={styles.movementLeft}>
+                        <div className={`${styles.movementDot} ${styles.movementDotRed}`} />
+                        <div className={styles.movementInfo}>
+                          <span className={styles.movementDescription}>{movement.description}</span>
+                          <div className={styles.movementMeta}>
+                            <span className={`${styles.movementCategory} ${styles.movementCategoryRed}`}>
+                              {movement.category}
+                            </span>
+                            {movement.property && (
+                              <span><Building2 size={11} /> {movement.property}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`${styles.movementAmount} ${styles.movementAmountRed}`}>
+                        -{formatCurrency(movement.amount)}
                       </span>
-                      <span className={styles.movementDate}>{formatDate(movement.date)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Honorarios */}
+            {settlement.commissionAmount > 0 && (
+              <div className={styles.sectionBlock}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <div className={`${styles.sectionIcon} ${styles.sectionIconBlue}`}>
+                      <Percent size={18} />
+                    </div>
+                    <div className={styles.sectionTitleGroup}>
+                      <h3 className={styles.sectionTitle}>Honorarios Inmobiliarios</h3>
+                      <span className={styles.sectionSubtitle}>Comisión sobre alquileres cobrados</span>
                     </div>
                   </div>
-                ))}
-
-                {/* Comisión como item */}
-                <div className={`${styles.movementItem} ${styles.movementItemCommission}`}>
-                  <div className={styles.movementInfo}>
-                    <span className={styles.movementCategory}>Comisión</span>
-                    <span className={styles.movementDescription}>
-                      Comisión inmobiliaria ({(settlement.commissionRate * 100).toFixed(0)}%)
-                    </span>
-                  </div>
-                  <div className={styles.movementRight}>
+                  <span className={`${styles.sectionTotal} ${styles.sectionTotalBlue}`}>
+                    -{formatCurrency(settlement.commissionAmount)}
+                  </span>
+                </div>
+                <div className={styles.movementsList}>
+                  <div className={styles.movementItem}>
+                    <div className={styles.movementLeft}>
+                      <div className={`${styles.movementDot} ${styles.movementDotBlue}`} />
+                      <div className={styles.movementInfo}>
+                        <span className={styles.movementDescription}>
+                          Comisión {(settlement.commissionRate * 100).toFixed(0)}% sobre {formatCurrency(settlement.totalIncome)}
+                        </span>
+                        <div className={styles.movementMeta}>
+                          <span className={`${styles.movementCategory} ${styles.movementCategoryBlue}`}>
+                            Comisión
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                     <span className={`${styles.movementAmount} ${styles.movementAmountBlue}`}>
                       -{formatCurrency(settlement.commissionAmount)}
                     </span>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </div>
 
-        {/* Resumen Final */}
-        <Card>
-          <CardContent>
-            <div className={styles.finalSummary}>
-              <div className={styles.finalSummaryRow}>
-                <span>Total Ingresos</span>
-                <span className={styles.finalSummaryValueGreen}>+{formatCurrency(settlement.totalIncome)}</span>
+          {/* Right: Sidebar */}
+          <div className={styles.sidebar}>
+            {/* Net Amount Card */}
+            <div className={styles.netCard}>
+              <div className={styles.netCardLabel}>Neto a Liquidar</div>
+              <div className={styles.netCardAmount}>{formatCurrency(settlement.netAmount)}</div>
+              {settlement.status === 'draft' && (
+                <div className={styles.netCardAction}>
+                  <button onClick={() => setShowSettleModal(true)}>
+                    <Wallet size={16} />
+                    Registrar Liquidación
+                  </button>
+                </div>
+              )}
+              {settlement.status === 'settled' && (
+                <>
+                  <div className={styles.netCardSettled}>
+                    <CheckCircle size={14} />
+                    Liquidado {settlement.paymentMethod === 'transfer' ? 'por transferencia' : settlement.paymentMethod === 'cash' ? 'en efectivo' : settlement.paymentMethod === 'check' ? 'con cheque' : ''}
+                  </div>
+                  <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                    <Button size="sm" variant="secondary" onClick={handleReopen} loading={actionLoading} leftIcon={<Unlock size={14} />}>
+                      Reabrir
+                    </Button>
+                  </div>
+                </>
+              )}
+              {settlement.status === 'stale' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', color: 'var(--error)', fontSize: 'var(--font-size-sm)' }}>
+                    <AlertTriangle size={14} />
+                    Hay cobros nuevos desde el cierre
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                    <Button size="sm" onClick={handleRecalculate} loading={actionLoading} leftIcon={<RefreshCw size={14} />}>
+                      Recalcular
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={handleDismissStale} loading={actionLoading} leftIcon={<SkipForward size={14} />}>
+                      Ignorar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Breakdown Card */}
+            <div className={styles.breakdownCard}>
+              <h4 className={styles.breakdownTitle}>Desglose</h4>
+              
+              {/* Waterfall bar */}
+              <div className={styles.waterfallBar}>
+                <div className={styles.waterfallTrack}>
+                  <div className={`${styles.waterfallSegment} ${styles.waterfallGreen}`} style={{ width: `${netPct}%` }} />
+                  <div className={`${styles.waterfallSegment} ${styles.waterfallRed}`} style={{ width: `${expensePct}%` }} />
+                  <div className={`${styles.waterfallSegment} ${styles.waterfallBlue}`} style={{ width: `${commissionPct}%` }} />
+                </div>
               </div>
-              <div className={styles.finalSummaryRow}>
-                <span>Total Gastos</span>
-                <span className={styles.finalSummaryValueRed}>-{formatCurrency(settlement.totalExpenses)}</span>
-              </div>
-              <div className={styles.finalSummaryRow}>
-                <span>Comisión Inmobiliaria</span>
-                <span className={styles.finalSummaryValueBlue}>-{formatCurrency(settlement.commissionAmount)}</span>
-              </div>
-              <div className={styles.finalSummaryDivider} />
-              <div className={`${styles.finalSummaryRow} ${styles.finalSummaryRowTotal}`}>
-                <span>Neto a Liquidar</span>
-                <span>{formatCurrency(settlement.netAmount)}</span>
+
+              <div className={styles.breakdownList}>
+                <div className={styles.breakdownRow}>
+                  <span className={styles.breakdownRowLabel}>
+                    <span className={styles.breakdownDot} style={{ background: 'var(--success)' }} />
+                    Ingresos cobrados
+                  </span>
+                  <span className={styles.breakdownRowValue} style={{ color: 'var(--success)' }}>
+                    +{formatCurrency(settlement.totalIncome)}
+                  </span>
+                </div>
+                <div className={styles.breakdownRow}>
+                  <span className={styles.breakdownRowLabel}>
+                    <span className={styles.breakdownDot} style={{ background: 'var(--error)' }} />
+                    Gastos imputados
+                  </span>
+                  <span className={styles.breakdownRowValue} style={{ color: 'var(--error)' }}>
+                    -{formatCurrency(settlement.totalExpenses)}
+                  </span>
+                </div>
+                <div className={styles.breakdownRow}>
+                  <span className={styles.breakdownRowLabel}>
+                    <span className={styles.breakdownDot} style={{ background: 'var(--accent-primary)' }} />
+                    Honorarios ({(settlement.commissionRate * 100).toFixed(0)}%)
+                  </span>
+                  <span className={styles.breakdownRowValue} style={{ color: 'var(--accent-primary)' }}>
+                    -{formatCurrency(settlement.commissionAmount)}
+                  </span>
+                </div>
+                <div className={styles.breakdownDivider} />
+                <div className={`${styles.breakdownRow} ${styles.breakdownRowTotal}`}>
+                  <span className={styles.breakdownRowLabel}>Neto a liquidar</span>
+                  <span className={styles.breakdownRowValue}>{formatCurrency(settlement.netAmount)}</span>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Settle Modal */}
         <Modal

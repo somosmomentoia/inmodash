@@ -36,6 +36,7 @@ import { useApartments } from '@/hooks/useApartments'
 import { useTenants } from '@/hooks/useTenants'
 import { useBuildings } from '@/hooks/useBuildings'
 import { useGuarantors } from '@/hooks/useGuarantors'
+import { useVendors } from '@/hooks/useVendors'
 import { ApartmentStatus, PropertyType } from '@/types'
 import styles from './new-contract.module.css'
 import indicesService from '@/services/indices.service'
@@ -73,6 +74,7 @@ export default function NewContractPage() {
   const { tenants, createTenant } = useTenants()
   const { buildings } = useBuildings()
   const { guarantors, createGuarantor, refresh: refreshGuarantors } = useGuarantors()
+  const { vendors } = useVendors()
 
   // URL params for prospect conversion
   const urlTenantId = searchParams.get('tenantId')
@@ -118,6 +120,11 @@ export default function NewContractPage() {
     updateIndexType: '' as '' | 'icl' | 'ipc' | 'fixed' | 'none',
     updateFrequencyMonths: '4', // Por defecto cada 4 meses
     fixedUpdateCoefficient: '1.05', // Coeficiente fijo por defecto
+    // Vendedor y comisiones contractuales
+    vendorId: '',
+    vendorCommissionAmount: '',
+    signupFeeAmount: '',
+    contractExpenses: '',
   })
 
   // Estado para el valor actual del índice (se obtiene de Argly)
@@ -456,6 +463,19 @@ export default function NewContractPage() {
             ? parseFloat(contractData.fixedUpdateCoefficient) 
             : undefined,
         }),
+        // Vendor and contract fees
+        ...(contractData.vendorId && {
+          vendorId: parseInt(contractData.vendorId),
+        }),
+        ...(contractData.vendorCommissionAmount && {
+          vendorCommissionAmount: parseFloat(contractData.vendorCommissionAmount),
+        }),
+        ...(contractData.signupFeeAmount && {
+          signupFeeAmount: parseFloat(contractData.signupFeeAmount),
+        }),
+        ...(contractData.contractExpenses && {
+          contractExpenses: parseFloat(contractData.contractExpenses),
+        }),
       } as any)
       setCreatedContractId(newContract.id)
       setCurrentStep(4)
@@ -754,6 +774,68 @@ export default function NewContractPage() {
                     <p>💡 <strong>Importante:</strong> La actualización se aplicará automáticamente cada {contractData.updateFrequencyMonths} meses a las obligaciones de alquiler generadas.</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader title="Vendedor y Comisiones Contractuales" subtitle="Asigna un vendedor y define comisiones de alta y gastos" />
+              <CardContent>
+                <div className={styles.formGrid}>
+                  <Select label="Vendedor"
+                    options={[
+                      { value: '', label: 'Sin vendedor asignado' },
+                      ...vendors.filter(v => v.isActive).map(v => ({
+                        value: v.id.toString(),
+                        label: v.name,
+                      })),
+                    ]}
+                    value={contractData.vendorId}
+                    onChange={(e) => setContractData({ ...contractData, vendorId: e.target.value })}
+                    fullWidth />
+                  {contractData.vendorId && (
+                    <Input
+                      label="Comisión del Vendedor (ARS)"
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={contractData.vendorCommissionAmount}
+                      onChange={(e) => setContractData({ ...contractData, vendorCommissionAmount: e.target.value })}
+                      leftIcon={<DollarSign size={18} />}
+                      placeholder="0"
+                      hint="Monto que se le paga al vendedor por este contrato"
+                      fullWidth />
+                  )}
+                  <Input
+                    label="Comisión de Alta (ARS)"
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={contractData.signupFeeAmount}
+                    onChange={(e) => setContractData({ ...contractData, signupFeeAmount: e.target.value })}
+                    leftIcon={<DollarSign size={18} />}
+                    placeholder="0"
+                    hint="Monto fijo que paga el inquilino al firmar"
+                    fullWidth />
+                  <Input
+                    label="Gastos de Contrato (ARS)"
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={contractData.contractExpenses}
+                    onChange={(e) => setContractData({ ...contractData, contractExpenses: e.target.value })}
+                    leftIcon={<DollarSign size={18} />}
+                    placeholder="0"
+                    hint="Sellados, escribanía, etc."
+                    fullWidth />
+                </div>
+                {contractData.vendorId && contractData.vendorCommissionAmount && (
+                  <div className={styles.infoBox}>
+                    <p>💰 <strong>Comisión del vendedor:</strong> ${parseFloat(contractData.vendorCommissionAmount).toLocaleString('es-AR')} para {vendors.find(v => v.id.toString() === contractData.vendorId)?.name || 'vendedor'}</p>
+                  </div>
+                )}
+                <div className={styles.infoBox}>
+                  <p>💡 <strong>Nota:</strong> La comisión de alta y los gastos de contrato se crearán como obligaciones pendientes al guardar el contrato. No se registra ningún pago aquí.</p>
+                </div>
               </CardContent>
             </Card>
 

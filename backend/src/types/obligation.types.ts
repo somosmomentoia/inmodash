@@ -6,9 +6,11 @@
  */
 
 export type ObligationStatus = 'pending' | 'partial' | 'paid' | 'overdue'
-export type ObligationType = 'rent' | 'expenses' | 'service' | 'tax' | 'insurance' | 'maintenance' | 'debt'
+export type ObligationType = 'rent' | 'expenses' | 'service' | 'tax' | 'insurance' | 'maintenance' | 'debt' | 'income_other' | 'expense_other'
 export type PaymentMethod = 'cash' | 'transfer' | 'check' | 'card' | 'other'
 export type PaidBy = 'tenant' | 'owner' | 'agency'
+export type ChargeTo = 'tenant' | 'owner' | 'agency'
+export type ObligationOrigin = 'tenant_ledger' | 'cashflow' | 'liquidation_manual' | 'contract_auto'
 export type CommissionType = 'percentage' | 'fixed'
 
 export interface CreateObligationDto {
@@ -23,8 +25,12 @@ export interface CreateObligationDto {
   
   // Distribución de dinero
   paidBy?: PaidBy
+  chargeTo?: ChargeTo
   ownerImpact?: number
   agencyImpact?: number
+  
+  // Trazabilidad
+  origin?: ObligationOrigin
   
   // Configuración de comisión (para alquileres)
   commissionType?: CommissionType
@@ -55,12 +61,9 @@ export interface CreateObligationPaymentDto {
   obligationId: number
   amount: number
   paymentDate: string | Date
-  method?: PaymentMethod | 'owner_balance'
+  method?: PaymentMethod
   reference?: string
   notes?: string
-  // Para pagos aplicados al saldo del propietario
-  appliedToOwnerBalance?: boolean
-  ownerId?: number
 }
 
 export interface UpdateObligationPaymentDto {
@@ -108,4 +111,5 @@ export interface ObligationDistribution {
   agencyImpact: number
   commissionAmount: number
   ownerAmount: number
+  chargeTo: ChargeTo
 }

@@ -41,7 +41,6 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   check: 'Cheque',
   card: 'Tarjeta',
   other: 'Otro',
-  owner_balance: 'Saldo Propietario'
 }
 
 const MONTHS = [
@@ -104,10 +103,15 @@ export default function PaymentsReceivedPage() {
     }
   }, [periodType, selectedDate])
 
+  // Solo pagos de obligaciones del inquilino (chargeTo = 'tenant')
+  const tenantPayments = useMemo(() => {
+    return payments.filter((p) => !p.obligation?.chargeTo || p.obligation.chargeTo === 'tenant')
+  }, [payments])
+
   const filteredPayments = useMemo(() => {
     const periodRange = getPeriodRange()
     
-    return payments.filter((payment) => {
+    return tenantPayments.filter((payment) => {
       const matchesMethod = selectedMethod === 'all' || payment.method === selectedMethod
       
       let matchesPeriod = true
@@ -123,24 +127,24 @@ export default function PaymentsReceivedPage() {
 
       return matchesMethod && matchesPeriod && matchesSearch
     })
-  }, [payments, selectedMethod, getPeriodRange, searchTerm])
+  }, [tenantPayments, selectedMethod, getPeriodRange, searchTerm])
 
   const stats = useMemo(() => {
     const now = new Date()
-    const thisMonth = payments.filter(p => {
+    const thisMonth = tenantPayments.filter(p => {
       const paymentDate = new Date(p.paymentDate)
       return paymentDate.getMonth() === now.getMonth() && 
              paymentDate.getFullYear() === now.getFullYear()
     })
 
-    const thisYear = payments.filter(p => {
+    const thisYear = tenantPayments.filter(p => {
       const paymentDate = new Date(p.paymentDate)
       return paymentDate.getFullYear() === now.getFullYear()
     })
 
     const totalMonth = thisMonth.reduce((sum, p) => sum + p.amount, 0)
     const totalYear = thisYear.reduce((sum, p) => sum + p.amount, 0)
-    const lastPayment = payments.length > 0 ? payments[0] : null
+    const lastPayment = tenantPayments.length > 0 ? tenantPayments[0] : null
 
     return {
       totalMonth,
@@ -149,7 +153,7 @@ export default function PaymentsReceivedPage() {
       countYear: thisYear.length,
       lastPayment
     }
-  }, [payments])
+  }, [tenantPayments])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {

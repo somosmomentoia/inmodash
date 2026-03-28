@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   FileText,
   Search,
@@ -35,6 +35,7 @@ import {
   Card,
   CardContent,
   Input,
+  Select,
   Badge,
   Modal,
   ModalFooter,
@@ -61,7 +62,7 @@ interface DocumentFolder {
 }
 
 export default function DocumentsPage() {
-  const { documents, loading: docsLoading, deleteDocument } = useDocuments()
+  const { documents, loading: docsLoading, deleteDocument, uploadDocument, refresh: refreshDocs } = useDocuments()
   const { contracts, loading: contractsLoading } = useContracts()
   const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
@@ -72,6 +73,16 @@ export default function DocumentsPage() {
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null)
   const [previewZoom, setPreviewZoom] = useState(100)
   const [previewRotation, setPreviewRotation] = useState(0)
+
+  // Upload state
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadForm, setUploadForm] = useState({
+    type: 'otro',
+    description: '',
+    contractId: '',
+  })
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loading = docsLoading || contractsLoading
 
@@ -189,6 +200,40 @@ export default function DocumentsPage() {
     }
   }
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      await uploadDocument({
+        file,
+        type: uploadForm.type,
+        description: uploadForm.description || undefined,
+        contractId: uploadForm.contractId ? parseInt(uploadForm.contractId) : (selectedFolder?.contractId || undefined),
+      })
+      refreshDocs()
+      setShowUploadModal(false)
+      setUploadForm({ type: 'otro', description: '', contractId: '' })
+    } catch (error: any) {
+      console.error('Error uploading document:', error)
+      alert(error?.message || 'Error al subir el documento')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const openUploadModal = () => {
+    // Pre-select contractId if we're inside a contract folder
+    if (selectedFolder?.contractId) {
+      setUploadForm(prev => ({ ...prev, contractId: String(selectedFolder.contractId) }))
+    } else {
+      setUploadForm({ type: 'otro', description: '', contractId: '' })
+    }
+    setShowUploadModal(true)
+  }
+
   const openPreview = (doc: Document) => {
     setPreviewDocument(doc)
     setPreviewZoom(100)
@@ -226,9 +271,6 @@ export default function DocumentsPage() {
         <aside className={styles.sidebar}>
           <div className={styles.sidebarHeader}>
             <h3>Explorador</h3>
-            <Button variant="ghost" size="sm">
-              <Plus size={16} />
-            </Button>
           </div>
 
           {/* Section Tabs */}
@@ -361,7 +403,7 @@ export default function DocumentsPage() {
                 </button>
               </div>
 
-              <Button leftIcon={<Upload size={16} />} size="sm">
+              <Button leftIcon={<Upload size={16} />} size="sm" onClick={openUploadModal}>
                 Subir
               </Button>
             </div>
@@ -405,14 +447,11 @@ export default function DocumentsPage() {
               // Show documents
               <div className={viewMode === 'grid' ? styles.documentGrid : styles.documentList}>
                 {filteredDocuments.length === 0 ? (
-                  <EmptyState
-                    icon={<FileText />}
-                    title="Sin documentos"
-                    description="Esta carpeta no tiene documentos."
-                    action={
-                      <Button leftIcon={<Upload size={16} />}>Subir Documento</Button>
-                    }
-                  />
+                  <div className={styles.emptyFolder}>
+                    <FileText size={40} />
+                    <h4>Sin documentos</h4>
+                    <p>Esta carpeta no tiene documentos.</p>
+                  </div>
                 ) : (
                   filteredDocuments.map((doc) => (
                     <div
@@ -635,6 +674,79 @@ export default function DocumentsPage() {
           </Button>
           <Button variant="danger" onClick={handleDelete}>
             Eliminar
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Upload Modal */}
+      <Modal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        title="Subir Documento"
+        subtitle={selectedFolder ? `Carpeta: ${selectedFolder.name}` : 'Seleccioná tipo y carpeta de destino'}
+        size="md"
+      >
+        <div className={styles.uploadForm}>
+          <Select
+            label="Tipo de documento"
+            options={[
+              { value: 'contrato', label: 'Contrato' },
+              { value: 'dni', label: 'DNI' },
+              { value: 'recibo_sueldo', label: 'Recibo de Sueldo' },
+              { value: 'garantia', label: 'Garantía' },
+              { value: 'otro', label: 'Otro' },
+            ]}
+            value={uploadForm.type}
+            onChange={(e) => setUploadForm({ ...uploadForm, type: e.target.value })}
+          />
+          {!selectedFolder?.contractId && (
+            <Select
+              label="Contrato (opcional)"
+              options={[
+                { value: '', label: 'Documentos generales (inmobiliaria)' },
+                ...contracts.map((c) => ({
+                  value: String(c.id),
+                  label: `${c.tenant?.nameOrBusiness || 'Sin inquilino'} — ${c.apartment?.nomenclature || c.apartment?.fullAddress || 'Sin propiedad'}`,
+                })),
+              ]}
+              value={uploadForm.contractId}
+              onChange={(e) => setUploadForm({ ...uploadForm, contractId: e.target.value })}
+            />
+          )}
+          <Input
+            label="Descripción (opcional)"
+            value={uploadForm.description}
+            onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+            placeholder="Ej: Contrato firmado, DNI frente..."
+          />
+          <div className={styles.uploadArea}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              className={styles.fileInput}
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+              disabled={uploading}
+            />
+            <div className={styles.uploadPlaceholder}>
+              {uploading ? (
+                <>
+                  <div className={styles.spinner} />
+                  <p>Subiendo archivo...</p>
+                </>
+              ) : (
+                <>
+                  <Upload size={32} />
+                  <p>Hacé clic para seleccionar un archivo</p>
+                  <span>PDF, JPG, PNG, DOC, XLS (máx. 10MB)</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowUploadModal(false)}>
+            Cancelar
           </Button>
         </ModalFooter>
       </Modal>

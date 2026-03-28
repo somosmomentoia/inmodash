@@ -75,6 +75,7 @@ model User {
   obligations          Obligation[]
   obligationPayments   ObligationPayment[]
   recurringObligations RecurringObligation[]
+  rentAdjustments      RentAdjustment[]
   settlements          Settlement[]
   
   // Relación con WhatsApp Bot
@@ -100,6 +101,13 @@ model User {
   
   // Relación con Asientos Contables
   accountingEntries AccountingEntry[]
+  
+  // Relación con Vendedores
+  vendors Vendor[]
+  vendorCommissions VendorCommission[]
+  
+  // Relación con Staff Users (empleados de la agencia)
+  staffUsers StaffUser[]
   
   @@index([email])
   @@index([role])
@@ -196,9 +204,6 @@ model Owner {
   address              String      @db.VarChar(500)
   bankAccount          String?     @db.VarChar(100)
   
-  // Balance del propietario (positivo = a favor del propietario, negativo = debe a la inmobiliaria)
-  balance              Float       @default(0)
-  
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
   
@@ -208,7 +213,6 @@ model Owner {
   buildings          Building[]
   documents          Document[]
   settlements        Settlement[]
-  obligationPayments ObligationPayment[] // Pagos aplicados al saldo del propietario
   tasks              Task[]              // Tareas vinculadas
   accountingEntries  AccountingEntry[]   // Asientos contables relacionados
   
@@ -353,6 +357,11 @@ model Contract {
   commissionType       String?   @db.VarChar(20) // "percentage" o "fixed"
   commissionValue      Float?    // Valor de la comisión (% o monto fijo)
   contractDocumentPath String?   @db.VarChar(500) // Ruta al documento principal del contrato
+  // Vendedor asignado y comisiones contractuales
+  vendorId             Int?      // Vendedor que cerró la operación
+  vendorCommissionPct  Float?    // % de comisión para el vendedor sobre la comisión de alta
+  signupFeeAmount      Float?    // Comisión de alta (monto fijo)
+  contractExpenses     Float?    // Gastos de contrato (sellados, escribanía, etc.)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   
@@ -367,9 +376,12 @@ model Contract {
   documents            Document[]
   obligations          Obligation[]           // Nueva relación
   recurringObligations RecurringObligation[]  // Recurrencias vinculadas
+  rentAdjustments      RentAdjustment[]       // Historial de ajustes por índice
   tasks                Task[]                 // Tareas vinculadas
   convertedFromProspect Prospect?             @relation("ProspectToContract") // Prospecto que originó este contrato
   accountingEntries    AccountingEntry[]      // Asientos contables relacionados
+  vendor               Vendor?                @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorCommissions    VendorCommission[]     // Comisiones de vendedor generadas
   
   @@index([userId])
   @@index([apartmentId])
@@ -456,6 +468,14 @@ model Obligation {
   // Quién paga esta obligación: "tenant", "owner", "agency"
   paidBy              String    @default("tenant") @db.VarChar(20)
   
+  // A quién se le carga esta obligación: "tenant", "owner", "agency"
+  // Determina en qué vista/liquidación aparece
+  chargeTo            String    @default("tenant") @db.VarChar(20)
+  
+  // Origen de la obligación (trazabilidad de dónde se creó)
+  // "tenant_ledger" | "cashflow" | "liquidation_manual" | "contract_auto"
+  origin              String?   @db.VarChar(30)
+  
   // Impacto en liquidación del propietario (puede ser + o -)
   // rent: ownerAmount = amount - commissionAmount (positivo, recibe dinero)
   // tax/maintenance: ownerImpact negativo (se descuenta de liquidación)
@@ -504,13 +524,9 @@ model ObligationPayment {
   obligationId  Int
   amount        Float     // Monto del pago
   paymentDate   DateTime  // Fecha real del pago
-  method        String?   @db.VarChar(50) // "cash", "transfer", "check", "card", "other", "owner_balance"
+  method        String?   @db.VarChar(50) // "cash", "transfer", "check", "card", "other"
   reference     String?   @db.VarChar(255) // Número de comprobante/referencia
   notes         String?   @db.VarChar(500)
-  
-  // Para pagos aplicados al saldo del propietario
-  appliedToOwnerBalance Boolean @default(false) // Si se descontó del saldo del propietario
-  ownerId               Int?    // Propietario afectado (si appliedToOwnerBalance = true)
   
   // Campos para Tenant Portal
   source         String?   @db.VarChar(50) // 'tenant_portal' | 'admin' | 'mercadopago_webhook'
@@ -522,7 +538,6 @@ model ObligationPayment {
   // Relaciones
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   obligation Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
-  owner      Owner?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   
   @@index([userId])
   @@index([obligationId])
@@ -583,7 +598,8 @@ model RecurringObligation {
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   contract        Contract?     @relation(fields: [contractId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   apartment       Apartment?    @relation(fields: [apartmentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  obligations     Obligation[]  // Obligaciones generadas por esta recurrencia
+  obligations      Obligation[]  // Obligaciones generadas por esta recurrencia
+  rentAdjustments  RentAdjustment[] // Historial de ajustes por índice
   
   @@index([userId])
   @@index([contractId])
@@ -591,6 +607,50 @@ model RecurringObligation {
   @@index([isActive])
   @@index([lastGenerated])
   @@map("recurring_obligations")
+}
+
+// Modelo: RentAdjustment (Historial de Ajustes de Alquiler por Índice)
+// Cada vez que se aplica una actualización de monto por ICL/IPC/fijo, se registra aquí
+model RentAdjustment {
+  id                    Int       @id @default(autoincrement())
+  userId                Int
+  contractId            Int
+  recurringObligationId Int
+  period                DateTime  // Período al que aplica (YYYY-MM-01)
+  
+  // Índice utilizado
+  indexType              String   @db.VarChar(20) // "icl", "ipc", "fixed"
+  originalIndexValue     Float    // Valor original obtenido de la API o coeficiente fijo
+  appliedIndexValue      Float    // Valor efectivamente usado (puede diferir si fue editado manualmente)
+  baseIndexValue         Float    // Valor del índice al inicio del contrato (initialIndexValue)
+  isManuallyModified     Boolean  @default(false)
+  
+  // Montos
+  baseAmount             Float    // Monto base del contrato (initialAmount)
+  previousAmount         Float    // Monto antes de este ajuste
+  newAmount              Float    // Monto después de este ajuste
+  coefficient            Float    // Coeficiente aplicado (appliedIndex / baseIndex)
+  percentageIncrease     Float    // % de aumento respecto al monto anterior
+  
+  // Auditoría
+  modifiedByUserId       Int?     // Usuario que modificó manualmente
+  modifiedAt             DateTime?
+  notes                  String?  @db.Text
+  
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  // Relaciones
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contract               Contract            @relation(fields: [contractId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recurringObligation    RecurringObligation @relation(fields: [recurringObligationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  
+  @@index([userId])
+  @@index([contractId])
+  @@index([recurringObligationId])
+  @@index([period])
+  @@unique([recurringObligationId, period]) // Solo un ajuste por recurrencia por período
+  @@map("rent_adjustments")
 }
 
 // Modelo: Settlement (Liquidación a Propietario)
@@ -603,8 +663,10 @@ model Settlement {
   totalCollected  Float     // Total cobrado en el período
   ownerAmount     Float     // Monto liquidado al propietario
   commissionAmount Float    // Comisión retenida por la inmobiliaria
-  status          String    @default("pending") @db.VarChar(20) // "pending", "settled"
+  deductions      Float     @default(0) // Deducciones del propietario (impuestos, mantenimiento, servicios)
+  status          String    @default("draft") @db.VarChar(20) // "draft", "settled", "stale"
   settledAt       DateTime? // Fecha en que se marcó como liquidado
+  staleSince      DateTime? // Fecha en que se detectaron cambios post-cierre
   paymentMethod   String?   @db.VarChar(50) // "transfer", "cash", "check"
   reference       String?   @db.VarChar(255) // Número de transferencia/comprobante
   notes           String?   @db.Text
@@ -633,6 +695,7 @@ model Document {
   type        String    @db.VarChar(50) // dni, recibo_sueldo, contrato, garantia, otro
   fileName    String    @db.VarChar(255)
   fileUrl     String    @db.VarChar(500)
+  storageKey  String?   @db.VarChar(500) // R2/S3 object key for deletion
   fileSize    Int       // Tamaño en bytes
   mimeType    String    @db.VarChar(100)
   description String?   @db.VarChar(500)
@@ -692,6 +755,55 @@ model RentalHistory {
   @@index([apartmentId])
   @@index([tenantId])
   @@map("rental_history")
+}
+
+// ============================================
+// VENDEDORES Y COMISIONES
+// ============================================
+
+// Modelo: Vendor (Vendedor de la inmobiliaria)
+model Vendor {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // Usuario dueño de la inmobiliaria
+  name      String   @db.VarChar(255)
+  email     String?  @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contracts Contract[]
+  commissions VendorCommission[]
+  
+  @@index([userId])
+  @@map("vendors")
+}
+
+// Modelo: VendorCommission (Comisión pendiente/pagada a un vendedor)
+model VendorCommission {
+  id          Int       @id @default(autoincrement())
+  userId      Int       // Usuario dueño de la inmobiliaria
+  vendorId    Int
+  contractId  Int
+  amount      Float     // Monto de la comisión
+  status      String    @default("pending") @db.VarChar(20) // pending, paid
+  paidAt      DateTime?
+  paymentMethod String? @db.VarChar(50)
+  reference   String?   @db.VarChar(255)
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([vendorId])
+  @@index([contractId])
+  @@index([status])
+  @@map("vendor_commissions")
 }
 
 // ============================================
@@ -874,8 +986,14 @@ model SubscriptionPayment {
 // Modelo: Task (Tareas del usuario)
 model Task {
   id          Int       @id @default(autoincrement())
-  userId      Int
+  userId      Int       // Agencia dueña de la tarea
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Asignación de tareas (staff users)
+  createdByStaffId  Int?      // Staff que creó la tarea (null = creada por owner)
+  createdByStaff    StaffUser? @relation("TaskCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  assignedToStaffId Int?      // Staff asignado (null = asignada al owner o sin asignar)
+  assignedToStaff   StaffUser? @relation("TaskAssignedTo", fields: [assignedToStaffId], references: [id], onDelete: SetNull)
   
   // Información de la tarea
   title       String    @db.VarChar(255)
@@ -889,7 +1007,11 @@ model Task {
   status      TaskStatus @default(pending)
   priority    TaskPriority @default(medium)
   
-  // Relaciones opcionales (para vincular con entidades)
+  // Deep-linking genérico (para crear tareas desde cualquier módulo)
+  relatedEntityType String? @db.VarChar(50)  // "contract", "obligation", "tenant", etc.
+  relatedEntityId   Int?                     // ID de la entidad relacionada
+  
+  // Relaciones opcionales (LEGACY - mantener por compatibilidad)
   contractId  Int?
   contract    Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
   apartmentId Int?
@@ -911,6 +1033,8 @@ model Task {
   @@index([status])
   @@index([dueDate])
   @@index([priority])
+  @@index([createdByStaffId])
+  @@index([assignedToStaffId])
   @@map("tasks")
 }
 
@@ -1269,4 +1393,64 @@ enum AccountingEntryType {
   expense             // Gasto operativo de la inmobiliaria
   income_other        // Otro ingreso
   adjustment          // Ajuste contable
+}
+
+// ============================================
+// STAFF USERS & PERMISSIONS SYSTEM
+// ============================================
+
+// Modelo: StaffUser (Usuarios internos de la agencia)
+model StaffUser {
+  id                Int       @id @default(autoincrement())
+  agencyId          Int       // FK a User (la agencia dueña)
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String    @db.VarChar(255)
+  name              String    @db.VarChar(255)
+  role              StaffRole @default(READ_ONLY)
+  isActive          Boolean   @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relación con la agencia
+  agency User @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  // Permisos personalizados
+  permissions UserPermission[]
+  
+  // Tareas creadas y asignadas
+  createdTasks Task[] @relation("TaskCreatedBy")
+  assignedTasks Task[] @relation("TaskAssignedTo")
+  
+  @@index([agencyId])
+  @@index([email])
+  @@index([isActive])
+  @@map("staff_users")
+}
+
+// Modelo: UserPermission (Permisos granulares por módulo/acción)
+model UserPermission {
+  id          Int      @id @default(autoincrement())
+  staffUserId Int
+  module      String   @db.VarChar(50)  // ej: "contracts", "finances"
+  action      String   @db.VarChar(50)  // ej: "view", "create", "settle"
+  allowed     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  
+  staffUser StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  
+  @@unique([staffUserId, module, action])
+  @@index([staffUserId, module])
+  @@map("user_permissions")
+}
+
+// Enum: StaffRole (Roles base como templates de permisos)
+enum StaffRole {
+  ADMIN           // Acceso total (template)
+  MANAGER         // Gestión general
+  ACCOUNTING      // Contabilidad y finanzas
+  COLLECTIONS     // Cobranzas
+  LEASING         // Alquileres y contratos
+  MAINTENANCE     // Mantenimiento
+  READ_ONLY       // Solo lectura
 }

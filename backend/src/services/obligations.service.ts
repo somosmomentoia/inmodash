@@ -7,10 +7,14 @@ import {
   ObligationStatus,
   ObligationType,
   PaidBy,
+  ChargeTo,
+  ObligationOrigin,
   CommissionType,
   ObligationDistribution
 } from '../types'
 import * as recurringObligationsService from './recurring-obligations.service'
+import * as settlementsService from './settlements.service'
+import accountingService from './accounting.service'
 
 
 /**
@@ -68,6 +72,7 @@ export function calculateDistribution(
   let agencyImpact = 0
   let commissionAmount = 0
   let ownerAmount = 0
+  let chargeTo: ChargeTo = 'tenant'
 
   switch (type) {
     case 'rent':
@@ -83,35 +88,42 @@ export function calculateDistribution(
       // IMPORTANTE: El owner siempre recibe el monto del alquiler (menos comisión si aplica)
       ownerImpact = ownerAmount // Positivo: owner recibe dinero
       agencyImpact = commissionAmount // Positivo: agency recibe comisión
+      chargeTo = 'tenant' // El inquilino paga el alquiler
       break
 
     case 'expenses':
       // Expensas: Solo tracking, no afecta liquidaciones ni contabilidad
       ownerImpact = 0
       agencyImpact = 0
+      chargeTo = 'tenant' // Solo tracking del inquilino
       break
 
     case 'service':
       // Servicios: Depende de quién paga
       if (paidBy === 'owner') {
         ownerImpact = -amount // Negativo: se descuenta de liquidación
+        chargeTo = 'owner'
       } else if (paidBy === 'agency') {
         agencyImpact = -amount // Negativo: gasto de la inmobiliaria
+        chargeTo = 'agency'
+      } else {
+        chargeTo = 'tenant' // Solo tracking
       }
-      // Si paidBy === 'tenant', no afecta a nadie (solo tracking)
       break
 
     case 'tax':
       // Impuestos: Por defecto a cargo del propietario
       ownerImpact = -amount // Negativo: se descuenta de liquidación
+      chargeTo = 'owner'
       break
 
     case 'insurance':
       // Seguros: Depende de quién paga
       if (paidBy === 'owner') {
         ownerImpact = -amount
-      } else if (paidBy === 'tenant') {
-        // Solo tracking
+        chargeTo = 'owner'
+      } else {
+        chargeTo = 'tenant' // Solo tracking
       }
       break
 
@@ -119,21 +131,53 @@ export function calculateDistribution(
       // Mantenimiento: Depende de quién paga
       if (paidBy === 'owner') {
         ownerImpact = -amount // Se descuenta de liquidación
+        chargeTo = 'owner'
       } else if (paidBy === 'agency') {
         agencyImpact = -amount // Gasto de la inmobiliaria
+        chargeTo = 'agency'
       }
       break
 
     case 'debt':
       // Deudas/Ajustes: Distribución flexible
-      // Si no se especifica manualmente, usar paidBy para determinar el impacto
-      // Por defecto: si paidBy es 'owner', el propietario debe el monto (ownerImpact negativo)
       if (paidBy === 'owner') {
         ownerImpact = -amount // El propietario nos debe este monto
+        chargeTo = 'owner'
       } else if (paidBy === 'agency') {
         agencyImpact = -amount // Es un gasto de la inmobiliaria
+        chargeTo = 'agency'
+      } else {
+        chargeTo = 'tenant' // Deuda del inquilino
       }
-      // Si paidBy es 'tenant', no afecta liquidaciones (solo tracking)
+      break
+
+    case 'income_other':
+      // Ingreso genérico (tasación, venta, administración puntual, etc.)
+      // paidBy determina a quién se imputa el ingreso
+      if (paidBy === 'owner') {
+        ownerImpact = amount // Ingreso para el propietario
+        chargeTo = 'owner'
+      } else if (paidBy === 'agency') {
+        agencyImpact = amount // Ingreso para la inmobiliaria
+        chargeTo = 'agency'
+      } else {
+        // tenant paga → depende del contexto, default agency
+        agencyImpact = amount
+        chargeTo = 'agency'
+      }
+      break
+
+    case 'expense_other':
+      // Egreso genérico (gasto operativo, proveedor, etc.)
+      if (paidBy === 'owner') {
+        ownerImpact = -amount // Se descuenta de liquidación del propietario
+        chargeTo = 'owner'
+      } else if (paidBy === 'agency') {
+        agencyImpact = -amount // Gasto de la inmobiliaria
+        chargeTo = 'agency'
+      } else {
+        chargeTo = 'tenant' // Solo tracking
+      }
       break
   }
 
@@ -141,7 +185,8 @@ export function calculateDistribution(
     ownerImpact,
     agencyImpact,
     commissionAmount,
-    ownerAmount
+    ownerAmount,
+    chargeTo
   }
 }
 
@@ -356,11 +401,18 @@ export const create = async (data: CreateObligationDto, userId: number) => {
   
   if (data.ownerImpact !== undefined || data.agencyImpact !== undefined) {
     // Manual distribution (for debt type)
+    // Derive chargeTo from impacts if not provided
+    let manualChargeTo: ChargeTo = data.chargeTo || 'tenant'
+    if (!data.chargeTo) {
+      if ((data.ownerImpact || 0) !== 0) manualChargeTo = 'owner'
+      else if ((data.agencyImpact || 0) !== 0) manualChargeTo = 'agency'
+    }
     distribution = {
       ownerImpact: data.ownerImpact || 0,
       agencyImpact: data.agencyImpact || 0,
       commissionAmount: data.commissionAmount || 0,
-      ownerAmount: data.ownerAmount || 0
+      ownerAmount: data.ownerAmount || 0,
+      chargeTo: manualChargeTo
     }
   } else {
     // Auto-calculate based on type
@@ -393,6 +445,11 @@ export const create = async (data: CreateObligationDto, userId: number) => {
 
   // Use transaction to create obligation and payment atomically if needed
   const result = await prisma.$transaction(async (tx) => {
+    // Determine chargeTo: explicit > distribution > paidBy
+    const chargeTo = data.chargeTo || distribution.chargeTo || paidBy
+    // Determine origin: explicit or null (will be set by caller)
+    const origin = data.origin || null
+
     const obligation = await tx.obligation.create({
       data: {
         userId,
@@ -406,6 +463,8 @@ export const create = async (data: CreateObligationDto, userId: number) => {
         amount: data.amount,
         paidAmount,
         paidBy,
+        chargeTo,
+        origin,
         ownerImpact: distribution.ownerImpact,
         agencyImpact: distribution.agencyImpact,
         commissionAmount: distribution.commissionAmount,
@@ -425,8 +484,7 @@ export const create = async (data: CreateObligationDto, userId: number) => {
           amount: paidAmount,
           paymentDate: new Date(),
           method: 'other',
-          notes: 'Ajuste automático - creado como pagado',
-          appliedToOwnerBalance: false
+          notes: 'Ajuste automático - creado como pagado'
         }
       })
     }
@@ -584,9 +642,10 @@ export const getAllPayments = async (userId: number) => {
         }
       }
     },
-    orderBy: {
-      paymentDate: 'desc'
-    }
+    orderBy: [
+      { paymentDate: 'desc' },
+      { createdAt: 'desc' }
+    ]
   })
 }
 
@@ -648,9 +707,10 @@ export const getPaymentsByContractId = async (contractId: number, userId: number
         }
       }
     },
-    orderBy: {
-      paymentDate: 'desc'
-    }
+    orderBy: [
+      { paymentDate: 'desc' },
+      { createdAt: 'desc' }
+    ]
   })
 }
 
@@ -667,22 +727,6 @@ export const createPayment = async (data: CreateObligationPaymentDto, userId: nu
     throw new Error(`Payment amount (${data.amount}) exceeds remaining amount (${remaining})`)
   }
 
-  // Si es un pago aplicado al saldo del propietario, verificar que el propietario existe
-  // y tiene saldo suficiente
-  if (data.appliedToOwnerBalance && data.ownerId) {
-    const owner = await prisma.owner.findFirst({
-      where: { id: data.ownerId, userId }
-    })
-    if (!owner) {
-      throw new Error('Owner not found or access denied')
-    }
-    // El balance positivo significa que el propietario tiene saldo a favor
-    // Para pagar una deuda del propietario, necesitamos descontar de su saldo
-    if (owner.balance < data.amount) {
-      throw new Error(`Saldo insuficiente del propietario. Saldo disponible: $${owner.balance.toLocaleString('es-AR')}`)
-    }
-  }
-
   // Create payment using transaction to ensure consistency
   const result = await prisma.$transaction(async (tx) => {
     // Create payment
@@ -692,11 +736,9 @@ export const createPayment = async (data: CreateObligationPaymentDto, userId: nu
         obligationId: data.obligationId,
         amount: data.amount,
         paymentDate: new Date(data.paymentDate),
-        method: data.appliedToOwnerBalance ? 'owner_balance' : data.method,
+        method: data.method,
         reference: data.reference,
-        notes: data.notes,
-        appliedToOwnerBalance: data.appliedToOwnerBalance || false,
-        ownerId: data.appliedToOwnerBalance ? data.ownerId : null
+        notes: data.notes
       }
     })
 
@@ -712,47 +754,76 @@ export const createPayment = async (data: CreateObligationPaymentDto, userId: nu
       }
     })
 
-    // Si es un pago aplicado al saldo del propietario, descontar del balance
-    if (data.appliedToOwnerBalance && data.ownerId) {
-      await tx.owner.update({
-        where: { id: data.ownerId },
-        data: {
-          balance: {
-            decrement: data.amount
-          }
+    return payment
+  })
+
+  // Crear AccountingEntry si la obligación impacta la caja de la inmobiliaria
+  if (obligation.agencyImpact !== 0) {
+    const paymentRatio = data.amount / obligation.amount
+    const agencyAmountForPayment = Math.round(obligation.agencyImpact * paymentRatio * 100) / 100
+
+    if (agencyAmountForPayment !== 0) {
+      const isIncome = agencyAmountForPayment > 0
+      const entryType = obligation.type === 'rent' ? 'commission' : 
+                        isIncome ? 'income_other' : 'expense'
+
+      await accountingService.create(userId, {
+        type: entryType,
+        description: `${isIncome ? 'Ingreso' : 'Egreso'}: ${obligation.description}`,
+        amount: Math.abs(agencyAmountForPayment),
+        entryDate: new Date(data.paymentDate),
+        period: obligation.period,
+        obligationId: obligation.id,
+        contractId: obligation.contractId || undefined,
+        metadata: {
+          paymentId: result.id,
+          obligationType: obligation.type,
+          isIncome,
+          origin: (obligation as any).origin || 'unknown'
         }
       })
     }
+  }
 
-    // Si es un pago de obligación a favor del propietario (paidBy = 'tenant'), 
-    // incrementar el balance del propietario con el ownerAmount proporcional
-    if (obligation.paidBy === 'tenant' && obligation.ownerAmount > 0) {
-      // Calcular el ownerAmount proporcional al pago
-      const paymentRatio = data.amount / obligation.amount
-      const ownerAmountForPayment = obligation.ownerAmount * paymentRatio
-
-      // Buscar el propietario de la propiedad
-      // Primero intentar con el ID directo, luego con la relación incluida
-      const apartment = obligation.contract?.apartment || obligation.apartment
-      const ownerId = apartment?.ownerId || 
-                      apartment?.owner?.id || 
-                      apartment?.building?.ownerId ||
-                      (apartment?.building as any)?.ownerRelation?.id
-      
-      if (ownerId && ownerAmountForPayment > 0) {
-        await tx.owner.update({
-          where: { id: ownerId },
-          data: {
-            balance: {
-              increment: ownerAmountForPayment
+  // Check if this payment affects a settled settlement → mark it stale
+  if (obligation.ownerImpact !== 0) {
+    try {
+      // Find the owner of this obligation
+      const fullObligation = await prisma.obligation.findUnique({
+        where: { id: obligation.id },
+        include: {
+          contract: {
+            include: {
+              apartment: {
+                include: {
+                  owner: true,
+                  building: { include: { ownerRelation: true } }
+                }
+              }
+            }
+          },
+          apartment: {
+            include: {
+              owner: true,
+              building: { include: { ownerRelation: true } }
             }
           }
-        })
-      }
-    }
+        }
+      })
 
-    return payment
-  })
+      const owner = fullObligation?.contract?.apartment?.owner ||
+                    fullObligation?.contract?.apartment?.building?.ownerRelation ||
+                    fullObligation?.apartment?.owner ||
+                    fullObligation?.apartment?.building?.ownerRelation
+
+      if (owner) {
+        await settlementsService.markAsStale(owner.id, obligation.period, userId)
+      }
+    } catch (err) {
+      console.error('[Settlements] Error checking stale status:', err)
+      // Don't block the payment if stale check fails
+    }
+  }
 
   // Return payment with obligation
   return await getPaymentById(result.id, userId)
@@ -948,6 +1019,8 @@ export const generateObligations = async (month: string, userId: number) => {
           amount: rentAmount,
           paidAmount: 0,
           paidBy: 'tenant',
+          chargeTo: 'tenant',
+          origin: 'contract_auto',
           ownerImpact: distribution.ownerImpact,
           agencyImpact: distribution.agencyImpact,
           commissionAmount: distribution.commissionAmount,
@@ -981,114 +1054,3 @@ export const generateObligations = async (month: string, userId: number) => {
   return results
 }
 
-/**
- * Recalcular el saldo de un propietario basándose en los pagos históricos
- * Esto es útil para corregir saldos que no se actualizaron correctamente
- */
-export const recalculateOwnerBalance = async (ownerId: number, userId: number) => {
-  // Verificar que el propietario existe y pertenece al usuario
-  const owner = await prisma.owner.findFirst({
-    where: { id: ownerId, userId }
-  })
-  if (!owner) {
-    throw new Error('Owner not found or access denied')
-  }
-
-  // Obtener todas las propiedades del propietario
-  const apartments = await prisma.apartment.findMany({
-    where: {
-      OR: [
-        { ownerId },
-        { building: { ownerId } }
-      ]
-    },
-    include: {
-      building: true
-    }
-  })
-
-  const apartmentIds = apartments.map(a => a.id)
-
-  // Obtener todos los pagos de obligaciones de tipo alquiler (paidBy = tenant)
-  // que corresponden a propiedades de este propietario
-  const payments = await prisma.obligationPayment.findMany({
-    where: {
-      userId,
-      obligation: {
-        paidBy: 'tenant',
-        OR: [
-          { apartmentId: { in: apartmentIds } },
-          { contract: { apartmentId: { in: apartmentIds } } }
-        ]
-      }
-    },
-    include: {
-      obligation: true
-    }
-  })
-
-  // Calcular el total de ownerAmount proporcional a los pagos
-  let totalOwnerAmount = 0
-  for (const payment of payments) {
-    const obligation = payment.obligation
-    if (obligation.ownerAmount && obligation.ownerAmount > 0) {
-      const paymentRatio = payment.amount / obligation.amount
-      totalOwnerAmount += obligation.ownerAmount * paymentRatio
-    }
-  }
-
-  // Obtener todos los pagos aplicados al saldo del propietario (decrementos)
-  const balancePayments = await prisma.obligationPayment.findMany({
-    where: {
-      userId,
-      ownerId,
-      appliedToOwnerBalance: true
-    }
-  })
-
-  const totalDeducted = balancePayments.reduce((sum, p) => sum + p.amount, 0)
-
-  // El saldo final es: ingresos - deducciones
-  const newBalance = totalOwnerAmount - totalDeducted
-
-  // Actualizar el saldo del propietario
-  await prisma.owner.update({
-    where: { id: ownerId },
-    data: { balance: newBalance }
-  })
-
-  return {
-    ownerId,
-    ownerName: owner.name,
-    previousBalance: owner.balance,
-    newBalance,
-    totalIncome: totalOwnerAmount,
-    totalDeducted,
-    paymentsProcessed: payments.length
-  }
-}
-
-/**
- * Recalcular el saldo de todos los propietarios de un usuario
- */
-export const recalculateAllOwnerBalances = async (userId: number) => {
-  const owners = await prisma.owner.findMany({
-    where: { userId }
-  })
-
-  const results = []
-  for (const owner of owners) {
-    try {
-      const result = await recalculateOwnerBalance(owner.id, userId)
-      results.push(result)
-    } catch (error: any) {
-      results.push({
-        ownerId: owner.id,
-        ownerName: owner.name,
-        error: error.message
-      })
-    }
-  }
-
-  return results
-}

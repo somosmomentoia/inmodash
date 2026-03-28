@@ -10,13 +10,17 @@ export const tasksController = {
         return res.status(401).json({ error: 'Unauthorized' })
       }
 
-      const { status, priority, includeCompleted, contactId } = req.query
+      const { status, priority, includeCompleted, contactId, assignedToStaffId, createdByStaffId, myTasks } = req.query
 
       const tasks = await tasksService.getAll(userId, {
         status: status as any,
         priority: priority as any,
         includeCompleted: includeCompleted === 'true',
-        contactId: contactId ? parseInt(contactId as string) : undefined
+        contactId: contactId ? parseInt(contactId as string) : undefined,
+        assignedToStaffId: assignedToStaffId ? parseInt(assignedToStaffId as string) : undefined,
+        createdByStaffId: createdByStaffId ? parseInt(createdByStaffId as string) : undefined,
+        myTasks: myTasks === 'true',
+        staffUserId: req.user?.staffUserId
       })
 
       res.json(tasks)
@@ -89,7 +93,7 @@ export const tasksController = {
         return res.status(401).json({ error: 'Unauthorized' })
       }
 
-      const { title, description, dueDate, priority, contractId, apartmentId, ownerId, tenantId, obligationId, contactId } = req.body
+      const { title, description, dueDate, priority, contractId, apartmentId, ownerId, tenantId, obligationId, contactId, assignedToStaffId, relatedEntityType, relatedEntityId } = req.body
 
       if (!title) {
         return res.status(400).json({ error: 'Title is required' })
@@ -105,8 +109,11 @@ export const tasksController = {
         ownerId,
         tenantId,
         obligationId,
-        contactId
-      })
+        contactId,
+        assignedToStaffId,
+        relatedEntityType,
+        relatedEntityId
+      }, req.user?.staffUserId)
 
       res.status(201).json(task)
     } catch (error) {
@@ -124,7 +131,7 @@ export const tasksController = {
       }
 
       const taskId = parseInt(req.params.id)
-      const { title, description, dueDate, status, priority, contractId, apartmentId, ownerId, tenantId, obligationId, contactId } = req.body
+      const { title, description, dueDate, status, priority, contractId, apartmentId, ownerId, tenantId, obligationId, contactId, assignedToStaffId, relatedEntityType, relatedEntityId } = req.body
 
       const task = await tasksService.update(userId, taskId, {
         title,
@@ -137,7 +144,10 @@ export const tasksController = {
         ownerId,
         tenantId,
         obligationId,
-        contactId
+        contactId,
+        assignedToStaffId,
+        relatedEntityType,
+        relatedEntityId
       })
 
       res.json(task)

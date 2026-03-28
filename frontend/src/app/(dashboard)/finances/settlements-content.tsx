@@ -14,6 +14,9 @@ import {
   Building2,
   Calendar,
   X,
+  AlertTriangle,
+  RefreshCw,
+  SkipForward,
 } from 'lucide-react'
 import {
   Button,
@@ -32,6 +35,7 @@ import { useObligations } from '@/hooks/useObligations'
 import { settlementsService } from '@/services/settlements.service'
 import { Obligation } from '@/types'
 import styles from './settlements.module.css'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface SettlementMovement {
   id: number
@@ -47,21 +51,22 @@ interface Settlement {
   id: number
   ownerId: number
   ownerName: string
-  ownerBalance: number
   period: Date
   totalIncome: number
   totalExpenses: number
   netAmount: number
   commissionAmount: number
-  status: 'pending' | 'settled'
+  status: 'draft' | 'settled' | 'stale'
   settledAt?: Date
+  staleSince?: Date
   paymentMethod?: string
   reference?: string
   movements: SettlementMovement[]
   propertyCount: number
+  dbId?: number
 }
 
-type FilterStatus = 'all' | 'pending' | 'settled' | 'positive' | 'negative'
+type FilterStatus = 'all' | 'draft' | 'settled' | 'stale' | 'positive' | 'negative'
 
 // Helper to get obligation type label
 const getObligationTypeLabel = (type: string): string => {
@@ -73,6 +78,8 @@ const getObligationTypeLabel = (type: string): string => {
     insurance: 'Seguro',
     maintenance: 'Mantenimiento',
     debt: 'Ajuste/Deuda',
+    income_other: 'Otro Ingreso',
+    expense_other: 'Otro Egreso',
   }
   return labels[type] || type
 }
@@ -81,6 +88,7 @@ export default function SettlementsContent() {
   const router = useRouter()
   const { owners, loading: ownersLoading } = useOwners()
   const { obligations, loading: obligationsLoading } = useObligations()
+  const { hasPermission } = usePermissions()
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -96,32 +104,34 @@ export default function SettlementsContent() {
   })
 
   // Cargar liquidaciones existentes de la BD
-  const [existingSettlements, setExistingSettlements] = useState<Map<string, { status: 'pending' | 'settled', settledAt?: Date, paymentMethod?: string }>>(new Map())
+  const [existingSettlements, setExistingSettlements] = useState<Map<string, { id: number, status: 'draft' | 'settled' | 'stale', settledAt?: Date, staleSince?: Date, paymentMethod?: string }>>(new Map())
   const [loadingSettlements, setLoadingSettlements] = useState(true)
 
-  useEffect(() => {
-    const loadExistingSettlements = async () => {
-      setLoadingSettlements(true)
-      try {
-        const allSettlements = await settlementsService.getAll()
-        const map = new Map<string, { status: 'pending' | 'settled', settledAt?: Date, paymentMethod?: string }>()
-        allSettlements.forEach(s => {
-          // Clave: ownerId-period (YYYY-MM) - usar UTC para evitar problemas de timezone
-          const periodDate = new Date(s.period)
-          const periodKey = `${s.ownerId}-${periodDate.getUTCFullYear()}-${String(periodDate.getUTCMonth() + 1).padStart(2, '0')}`
-          map.set(periodKey, { 
-            status: s.status, 
-            settledAt: s.settledAt ? new Date(s.settledAt) : undefined,
-            paymentMethod: s.paymentMethod 
-          })
+  const loadExistingSettlements = async () => {
+    setLoadingSettlements(true)
+    try {
+      const allSettlements = await settlementsService.getAll()
+      const map = new Map<string, { id: number, status: 'draft' | 'settled' | 'stale', settledAt?: Date, staleSince?: Date, paymentMethod?: string }>()
+      allSettlements.forEach(s => {
+        const periodDate = new Date(s.period)
+        const periodKey = `${s.ownerId}-${periodDate.getUTCFullYear()}-${String(periodDate.getUTCMonth() + 1).padStart(2, '0')}`
+        map.set(periodKey, { 
+          id: s.id,
+          status: s.status as 'draft' | 'settled' | 'stale', 
+          settledAt: s.settledAt ? new Date(s.settledAt) : undefined,
+          staleSince: s.staleSince ? new Date(s.staleSince) : undefined,
+          paymentMethod: s.paymentMethod || undefined
         })
-        setExistingSettlements(map)
-      } catch (error) {
-        console.error('Error loading settlements:', error)
-      } finally {
-        setLoadingSettlements(false)
-      }
+      })
+      setExistingSettlements(map)
+    } catch (error) {
+      console.error('Error loading settlements:', error)
+    } finally {
+      setLoadingSettlements(false)
     }
+  }
+
+  useEffect(() => {
     loadExistingSettlements()
   }, [])
 
@@ -178,20 +188,23 @@ export default function SettlementsContent() {
         // ownerImpact < 0 means expense for owner (taxes, maintenance, etc.)
         // ownerImpact = 0 means no impact (tenant-paid obligations)
         if (ob.ownerImpact > 0) {
-          // Income: rent payments, debt credits, etc.
-          totalIncome += ob.ownerImpact
+          // Income: use gross amount (ownerImpact + agencyImpact) to avoid double-counting commission
+          // ownerImpact already has commission deducted, so we add it back for display
+          // Commission will be subtracted once in the netAmount calculation
+          const grossAmount = ob.agencyImpact > 0 ? ob.ownerImpact + ob.agencyImpact : ob.ownerImpact
+          totalIncome += grossAmount
           movements.push({
             id: ob.id,
             type: 'income',
             category: getObligationTypeLabel(ob.type),
             description: ob.description,
-            amount: ob.ownerImpact,
+            amount: grossAmount,
             date: new Date(ob.period),
             obligationId: ob.id,
           })
-          // Commission is calculated on rent income only
-          if (ob.type === 'rent') {
-            commissionAmount += ob.commissionAmount || 0
+          // Commission: use agencyImpact when positive (rent commissions, etc.)
+          if (ob.agencyImpact > 0) {
+            commissionAmount += ob.agencyImpact
           }
         } else if (ob.ownerImpact < 0) {
           // Expense: taxes, maintenance, services paid by owner
@@ -224,17 +237,18 @@ export default function SettlementsContent() {
         id: owner.id,
         ownerId: owner.id,
         ownerName: owner.name,
-        ownerBalance: owner.balance || 0,
         period: periodStart,
         totalIncome,
         totalExpenses,
         netAmount,
         commissionAmount,
-        status: existingSettlement?.status || 'pending',
+        status: existingSettlement?.status || 'draft',
         settledAt: existingSettlement?.settledAt,
+        staleSince: existingSettlement?.staleSince,
         paymentMethod: existingSettlement?.paymentMethod,
         propertyCount: apartmentIds.size || 1,
         movements,
+        dbId: existingSettlement?.id,
       }
     }).filter((s): s is NonNullable<typeof s> => s !== null) as Settlement[]
   }, [owners, obligations, selectedMonth, existingSettlements])
@@ -252,8 +266,9 @@ export default function SettlementsContent() {
 
       // Check each active filter
       for (const filter of activeFilters) {
-        if (filter === 'pending' && settlement.status === 'pending') return true
+        if (filter === 'draft' && settlement.status === 'draft') return true
         if (filter === 'settled' && settlement.status === 'settled') return true
+        if (filter === 'stale' && settlement.status === 'stale') return true
         if (filter === 'positive' && settlement.netAmount > 0) return true
         if (filter === 'negative' && settlement.netAmount < 0) return true
       }
@@ -264,12 +279,14 @@ export default function SettlementsContent() {
 
   // Stats
   const stats = useMemo(() => {
-    const pending = settlements.filter((s) => s.status === 'pending')
+    const draft = settlements.filter((s) => s.status === 'draft')
     const settled = settlements.filter((s) => s.status === 'settled')
+    const stale = settlements.filter((s) => s.status === 'stale')
     return {
-      pendingCount: pending.length,
+      draftCount: draft.length,
       settledCount: settled.length,
-      totalPending: pending.reduce((sum, s) => sum + s.netAmount, 0),
+      staleCount: stale.length,
+      totalPending: draft.reduce((sum, s) => sum + s.netAmount, 0),
       totalCommissions: settlements.reduce((sum, s) => sum + s.commissionAmount, 0),
       totalIncome: settlements.reduce((sum, s) => sum + s.totalIncome, 0),
     }
@@ -333,27 +350,19 @@ export default function SettlementsContent() {
         totalCollected: selectedSettlement.totalIncome,
         ownerAmount: selectedSettlement.netAmount,
         commissionAmount: selectedSettlement.commissionAmount,
+        deductions: selectedSettlement.totalExpenses,
         notes: settleForm.notes || undefined,
       })
 
       // 2. Marcar como liquidada
-      const settled = await settlementsService.markAsSettled(created.id, {
+      await settlementsService.markAsSettled(created.id, {
         paymentMethod: settleForm.paymentMethod,
         reference: settleForm.reference || undefined,
         notes: settleForm.notes || undefined,
       })
 
-      // 3. Actualizar el estado local inmediatamente
-      const settlementKey = `${selectedSettlement.ownerId}-${selectedMonth}`
-      setExistingSettlements(prev => {
-        const newMap = new Map(prev)
-        newMap.set(settlementKey, {
-          status: 'settled',
-          settledAt: settled.settledAt ? new Date(settled.settledAt) : new Date(),
-          paymentMethod: settleForm.paymentMethod
-        })
-        return newMap
-      })
+      // 3. Recargar liquidaciones
+      await loadExistingSettlements()
 
       setShowSettleModal(false)
       setSelectedSettlement(null)
@@ -362,6 +371,37 @@ export default function SettlementsContent() {
       alert('Error al registrar la liquidación')
     } finally {
       setSettling(false)
+    }
+  }
+
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
+
+  const handleRecalculate = async (settlement: Settlement) => {
+    if (!settlement.dbId) return
+    setActionLoading(settlement.dbId)
+    try {
+      await settlementsService.recalculate(settlement.dbId)
+      await loadExistingSettlements()
+    } catch (error) {
+      console.error('Error al recalcular:', error)
+      alert('Error al recalcular la liquidación')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDismissStale = async (settlement: Settlement) => {
+    if (!settlement.dbId) return
+    setActionLoading(settlement.dbId)
+    try {
+      const result = await settlementsService.dismissStale(settlement.dbId)
+      alert(`Se movieron ${result.movedObligations} obligaciones al próximo período.`)
+      await loadExistingSettlements()
+    } catch (error) {
+      console.error('Error al ignorar:', error)
+      alert('Error al procesar')
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -414,12 +454,21 @@ export default function SettlementsContent() {
       <div className={styles.filterPills}>
         <span className={styles.filterLabel}>Filtros:</span>
         <button
-          onClick={() => toggleFilter('pending')}
-          className={`${styles.pill} ${activeFilters.includes('pending') ? styles.pillActive : ''} ${styles.pillOrange}`}
+          onClick={() => toggleFilter('draft')}
+          className={`${styles.pill} ${activeFilters.includes('draft') ? styles.pillActive : ''} ${styles.pillOrange}`}
         >
           <Clock size={14} />
-          Pendientes ({stats.pendingCount})
+          Pendientes ({stats.draftCount})
         </button>
+        {stats.staleCount > 0 && (
+          <button
+            onClick={() => toggleFilter('stale')}
+            className={`${styles.pill} ${activeFilters.includes('stale') ? styles.pillActive : ''} ${styles.pillOrange}`}
+          >
+            <AlertTriangle size={14} />
+            Desactualizadas ({stats.staleCount})
+          </button>
+        )}
         <button
           onClick={() => toggleFilter('settled')}
           className={`${styles.pill} ${activeFilters.includes('settled') ? styles.pillActive : ''} ${styles.pillGreen}`}
@@ -544,25 +593,61 @@ export default function SettlementsContent() {
                 </div>
 
                 <div className={styles.settlementActions}>
-                  {settlement.status === 'pending' ? (
+                  {settlement.status === 'draft' && (
                     <>
                       <Badge variant="warning">Pendiente</Badge>
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openSettleModal(settlement)
-                        }}
-                      >
-                        Liquidar
-                      </Button>
+                      {hasPermission('finances', 'settle_owners') && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openSettleModal(settlement)
+                          }}
+                        >
+                          Liquidar
+                        </Button>
+                      )}
                     </>
-                  ) : (
+                  )}
+                  {settlement.status === 'settled' && (
                     <>
                       <Badge variant="success">Liquidado</Badge>
                       <span className={styles.settledMethod}>
                         {settlement.paymentMethod === 'transfer' ? 'Transferencia' : settlement.paymentMethod || '-'}
                       </span>
+                    </>
+                  )}
+                  {settlement.status === 'stale' && (
+                    <>
+                      <Badge variant="error">
+                        <AlertTriangle size={12} style={{ marginRight: 4 }} />
+                        Desactualizada
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={actionLoading === settlement.dbId}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRecalculate(settlement)
+                        }}
+                        leftIcon={<RefreshCw size={14} />}
+                      >
+                        Recalcular
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={actionLoading === settlement.dbId}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDismissStale(settlement)
+                        }}
+                        leftIcon={<SkipForward size={14} />}
+                      >
+                        Ignorar
+                      </Button>
                     </>
                   )}
                   <ChevronRight size={20} className={styles.chevron} />

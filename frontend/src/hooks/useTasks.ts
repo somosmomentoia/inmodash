@@ -6,6 +6,9 @@ interface UseTasksOptions {
   status?: TaskStatus
   priority?: TaskPriority
   includeCompleted?: boolean
+  myTasks?: boolean
+  assignedToStaffId?: number
+  createdByStaffId?: number
 }
 
 export function useTasks(options?: UseTasksOptions) {
@@ -20,6 +23,9 @@ export function useTasks(options?: UseTasksOptions) {
       if (options?.status) params.append('status', options.status)
       if (options?.priority) params.append('priority', options.priority)
       if (options?.includeCompleted) params.append('includeCompleted', 'true')
+      if (options?.myTasks) params.append('myTasks', 'true')
+      if (options?.assignedToStaffId) params.append('assignedToStaffId', options.assignedToStaffId.toString())
+      if (options?.createdByStaffId) params.append('createdByStaffId', options.createdByStaffId.toString())
 
       const data = await apiClient.get<Task[]>(`/api/tasks?${params}`)
       setTasks(data)
@@ -33,7 +39,7 @@ export function useTasks(options?: UseTasksOptions) {
     } finally {
       setLoading(false)
     }
-  }, [options?.status, options?.priority, options?.includeCompleted])
+  }, [options?.status, options?.priority, options?.includeCompleted, options?.myTasks, options?.assignedToStaffId, options?.createdByStaffId])
 
   useEffect(() => {
     fetchTasks()

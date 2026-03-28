@@ -117,6 +117,6 @@ export const documentsService = {
     if (data.ownerId) formData.append('ownerId', data.ownerId.toString())
     if (data.apartmentId) formData.append('apartmentId', data.apartmentId.toString())
 
-    return apiClient.upload<Document>('/api/documents/upload', formData)
+    return apiClient.upload<Document>('/api/documents', formData)
   },
 }

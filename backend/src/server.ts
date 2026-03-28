@@ -6,6 +6,7 @@ import config from './config/env'
 import { errorHandler } from './middleware/errorHandler'
 import { securityHeaders, requestLogger, sanitizeInput } from './middleware/security'
 import { logger } from './utils/logger'
+import { startAllCronJobs } from './utils/cron'
 
 const app = express()
 
@@ -21,31 +22,27 @@ if (config.isDevelopment) {
 }
 
 // CORS configuration - Allow multiple domains
-const envOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(o => o.trim()) : [];
 const allowedOrigins = [
   'https://inmodash-front.vercel.app',
   'https://inmodash.com.ar',
   'https://www.inmodash.com.ar',
-  'https://tenant.inmodash.com',
-  'http://localhost:3000',
-  'http://localhost:3975',
-  'http://localhost:3976',
-  'http://localhost:3977',
-  ...envOrigins
+  'https://tenant.inmodash.com', // Tenant Portal
+  'http://localhost:3000', // For local development
+  'http://localhost:3376', // For local frontend v2 development (actual port)
+  'http://localhost:3975', // For local frontend development
+  'http://localhost:3976', // For local frontend v2 development
+  'http://localhost:3977'  // For tenant portal development
 ];
-
-console.log('CORS allowed origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Allow all Vercel preview deployments and inmodash domains
+    // Allow all Vercel preview deployments
     if (origin && (
-      allowedOrigins.includes(origin) || 
-      origin.endsWith('.vercel.app') ||
-      origin.includes('inmodash')
+      allowedOrigins.indexOf(origin) !== -1 || 
+      origin.endsWith('.vercel.app')
     )) {
       callback(null, true);
     } else {
@@ -54,8 +51,8 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
 // Cookie parser
@@ -136,7 +133,12 @@ import tenantInviteRoutes from './routes/tenant.invite.routes'
 import tenantPortalRoutes from './routes/tenant.portal.routes'
 import tenantWebhookRoutes from './routes/tenant.webhook.routes'
 import accountingRoutes from './routes/accounting.routes'
+import cashflowRoutes from './routes/cashflow.routes'
 import indicesRoutes from './routes/indices.routes'
+import vendorsRoutes from './routes/vendors.routes'
+import vendorCommissionsRoutes from './routes/vendor-commissions.routes'
+import staffRoutes from './routes/staff.routes'
+import permissionsRoutes from './routes/permissions.routes'
 import { authenticate } from './middleware/auth'
 
 // Usar rutas
@@ -157,7 +159,12 @@ app.use('/api/contacts', contactsRoutes) // NEW - Sistema de contactos
 app.use('/api/notifications', notificationsRoutes) // NEW - Sistema de notificaciones
 app.use('/api/prospects', prospectsRoutes) // NEW - Sistema de prospectos (leasing)
 app.use('/api/accounting', accountingRoutes) // NEW - Asientos contables (comisiones)
+app.use('/api/cash-flow', cashflowRoutes) // NEW - Flujo de Caja (Fase 2)
 app.use('/api/indices', indicesRoutes) // NEW - Índices económicos (ICL/IPC via Argly)
+app.use('/api/vendors', vendorsRoutes) // NEW - Vendedores
+app.use('/api/vendor-commissions', vendorCommissionsRoutes) // NEW - Comisiones de vendedores
+app.use('/api/staff', staffRoutes) // NEW - Staff users (usuarios internos)
+app.use('/api/permissions', permissionsRoutes) // NEW - Permisos de staff users
 app.use('/api/documents', documentsRoutes)
 app.use('/api/migration', migrationRoutes)
 // WhatsApp routes - webhook endpoints don't need auth, config endpoints do
@@ -198,6 +205,9 @@ const runNotificationGenerator = async () => {
 app.listen(config.port, () => {
   logger.serverStart(config.port, config.nodeEnv)
   
+  // Start cron jobs (recurring obligations + rent generation on 1st of each month)
+  startAllCronJobs()
+
   // Run notification generator on startup (after 30 seconds) and then every hour
   setTimeout(() => {
     runNotificationGenerator()
@@ -208,7 +218,7 @@ app.listen(config.port, () => {
 // Manejo de errores no capturados
 process.on('unhandledRejection', (err: Error) => {
   logger.error('Unhandled Rejection', err)
-  process.exit(1)
+  // No hacer process.exit(1) para que el server siga corriendo
 })
 
 process.on('uncaughtException', (err: Error) => {

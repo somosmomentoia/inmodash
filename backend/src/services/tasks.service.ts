@@ -12,6 +12,9 @@ export interface CreateTaskDto {
   tenantId?: number
   obligationId?: number
   contactId?: number
+  assignedToStaffId?: number
+  relatedEntityType?: string
+  relatedEntityId?: number
 }
 
 export interface UpdateTaskDto {
@@ -26,6 +29,9 @@ export interface UpdateTaskDto {
   tenantId?: number
   obligationId?: number
   contactId?: number
+  assignedToStaffId?: number
+  relatedEntityType?: string
+  relatedEntityId?: number
 }
 
 export const tasksService = {
@@ -35,6 +41,10 @@ export const tasksService = {
     priority?: TaskPriority
     includeCompleted?: boolean
     contactId?: number
+    assignedToStaffId?: number
+    createdByStaffId?: number
+    myTasks?: boolean
+    staffUserId?: number
   }) {
     const where: any = { userId }
 
@@ -52,6 +62,23 @@ export const tasksService = {
       where.contactId = filters.contactId
     }
 
+    // Filtros de staff
+    if (filters?.assignedToStaffId) {
+      where.assignedToStaffId = filters.assignedToStaffId
+    }
+
+    if (filters?.createdByStaffId) {
+      where.createdByStaffId = filters.createdByStaffId
+    }
+
+    // Filtro "mis tareas" para staff users
+    if (filters?.myTasks && filters?.staffUserId) {
+      where.OR = [
+        { assignedToStaffId: filters.staffUserId },
+        { createdByStaffId: filters.staffUserId }
+      ]
+    }
+
     return prisma.task.findMany({
       where,
       include: {
@@ -62,7 +89,9 @@ export const tasksService = {
         owner: { select: { id: true, name: true } },
         tenant: { select: { id: true, nameOrBusiness: true } },
         obligation: { select: { id: true, description: true, type: true, amount: true } },
-        contact: { select: { id: true, name: true, category: true } }
+        contact: { select: { id: true, name: true, category: true } },
+        createdByStaff: { select: { id: true, name: true, email: true } },
+        assignedToStaff: { select: { id: true, name: true, email: true } }
       },
       orderBy: [
         { status: 'asc' },
@@ -98,13 +127,15 @@ export const tasksService = {
             dueDate: true 
           } 
         },
-        contact: { select: { id: true, name: true, category: true, email: true, phone: true } }
+        contact: { select: { id: true, name: true, category: true, email: true, phone: true } },
+        createdByStaff: { select: { id: true, name: true, email: true } },
+        assignedToStaff: { select: { id: true, name: true, email: true } }
       }
     })
   },
 
   // Create a new task
-  async create(userId: number, data: CreateTaskDto) {
+  async create(userId: number, data: CreateTaskDto, staffUserId?: number) {
     return prisma.task.create({
       data: {
         userId,
@@ -118,7 +149,11 @@ export const tasksService = {
         ownerId: data.ownerId,
         tenantId: data.tenantId,
         obligationId: data.obligationId,
-        contactId: data.contactId
+        contactId: data.contactId,
+        createdByStaffId: staffUserId,
+        assignedToStaffId: data.assignedToStaffId,
+        relatedEntityType: data.relatedEntityType,
+        relatedEntityId: data.relatedEntityId
       },
       include: {
         contract: { select: { id: true, apartment: { select: { nomenclature: true } } } },
@@ -126,7 +161,9 @@ export const tasksService = {
         owner: { select: { id: true, name: true } },
         tenant: { select: { id: true, nameOrBusiness: true } },
         obligation: { select: { id: true, description: true, type: true } },
-        contact: { select: { id: true, name: true, category: true } }
+        contact: { select: { id: true, name: true, category: true } },
+        createdByStaff: { select: { id: true, name: true, email: true } },
+        assignedToStaff: { select: { id: true, name: true, email: true } }
       }
     })
   },
@@ -163,7 +200,9 @@ export const tasksService = {
         owner: { select: { id: true, name: true } },
         tenant: { select: { id: true, nameOrBusiness: true } },
         obligation: { select: { id: true, description: true, type: true } },
-        contact: { select: { id: true, name: true, category: true } }
+        contact: { select: { id: true, name: true, category: true } },
+        createdByStaff: { select: { id: true, name: true, email: true } },
+        assignedToStaff: { select: { id: true, name: true, email: true } }
       }
     })
   },
@@ -189,7 +228,9 @@ export const tasksService = {
         apartment: { select: { id: true, nomenclature: true } },
         owner: { select: { id: true, name: true } },
         tenant: { select: { id: true, nameOrBusiness: true } },
-        obligation: { select: { id: true, description: true, type: true } }
+        obligation: { select: { id: true, description: true, type: true } },
+        createdByStaff: { select: { id: true, name: true, email: true } },
+        assignedToStaff: { select: { id: true, name: true, email: true } }
       }
     })
   },

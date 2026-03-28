@@ -14,36 +14,63 @@ interface NotificationPreferences {
 
 class NotificationGeneratorService {
   /**
+   * Wrap a promise with a timeout to prevent hanging
+   */
+  private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timeout: ${label} took longer than ${ms}ms`)), ms)
+      promise
+        .then((val) => { clearTimeout(timer); resolve(val) })
+        .catch((err) => { clearTimeout(timer); reject(err) })
+    })
+  }
+
+  /**
    * Generate all notifications for all users
    * This should be called periodically (e.g., every hour or daily)
+   * Non-blocking: uses timeouts and parallel processing
    */
   async generateAll(): Promise<{ generated: number; errors: number }> {
     let generated = 0
     let errors = 0
 
     try {
-      // Get all active users
-      const users = await prisma.user.findMany({
-        where: {
-          subscriptionStatus: { in: ['trial', 'active'] },
-        },
-        select: { id: true, preferences: true },
-      })
+      // Get all active users (with 10s timeout)
+      const users = await this.withTimeout(
+        prisma.user.findMany({
+          where: {
+            subscriptionStatus: { in: ['trial', 'active'] },
+          },
+          select: { id: true, preferences: true },
+        }),
+        10000,
+        'fetch users'
+      )
 
       console.log(`[Notifications] Checking notifications for ${users.length} users...`)
 
-      for (const user of users) {
-        try {
+      // Process all users in parallel with individual timeouts (15s per user)
+      const results = await Promise.allSettled(
+        users.map(async (user) => {
           const prefs = (user.preferences as { notifications?: NotificationPreferences })?.notifications || {}
-          const count = await this.generateForUser(user.id, prefs)
-          generated += count
-        } catch (err) {
-          console.error(`Error generating notifications for user ${user.id}:`, err)
+          return this.withTimeout(
+            this.generateForUser(user.id, prefs),
+            15000,
+            `user ${user.id}`
+          )
+        })
+      )
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          generated += result.value
+        } else {
+          console.error(`[Notifications] Error:`, result.reason?.message || result.reason)
           errors++
         }
       }
-    } catch (err) {
-      console.error('Error in generateAll:', err)
+    } catch (err: any) {
+      console.error('[Notifications] Error in generateAll:', err?.message || err)
       errors++
     }
 

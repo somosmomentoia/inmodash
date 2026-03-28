@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import * as recurringObligationsController from '../controllers/recurring-obligations.controller'
 import { authenticate } from '../middleware/auth'
+import { requirePermission } from '../middleware/permissions'
 
 const router = Router()
 
@@ -8,14 +9,14 @@ const router = Router()
 router.use(authenticate)
 
 // CRUD de recurrencias
-router.get('/', recurringObligationsController.getAll)
-router.get('/:id', recurringObligationsController.getById)
-router.post('/', recurringObligationsController.create)
-router.put('/:id', recurringObligationsController.update)
-router.delete('/:id', recurringObligationsController.remove)
+router.get('/', requirePermission('obligations', 'view'), recurringObligationsController.getAll)
+router.get('/:id', requirePermission('obligations', 'view'), recurringObligationsController.getById)
+router.post('/', requirePermission('obligations', 'create'), recurringObligationsController.create)
+router.put('/:id', requirePermission('obligations', 'edit'), recurringObligationsController.update)
+router.delete('/:id', requirePermission('obligations', 'delete'), recurringObligationsController.remove)
 
 // Acciones especiales
-router.post('/:id/toggle', recurringObligationsController.toggleActive)
-router.post('/generate', recurringObligationsController.generateForMonth)
+router.post('/:id/toggle', requirePermission('obligations', 'edit'), recurringObligationsController.toggleActive)
+router.post('/generate', requirePermission('obligations', 'create'), recurringObligationsController.generateForMonth)
 
 export default router

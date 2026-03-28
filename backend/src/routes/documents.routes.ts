@@ -1,44 +1,42 @@
 import { Router } from 'express'
 import * as documentsController from '../controllers/documents.controller'
 import { authenticate } from '../middleware/auth'
-import { upload } from '../middleware/upload'
+import { requirePermission } from '../middleware/permissions'
+import { memoryUpload, handleMulterError } from '../middleware/upload'
 
 const router = Router()
 
 // All routes require authentication
 router.use(authenticate)
 
-// Get all documents
-router.get('/', documentsController.getAll)
-
 // Get documents by type
-router.get('/type/:type', documentsController.getByType)
+router.get('/type/:type', requirePermission('documents', 'view'), documentsController.getByType)
 
 // Get documents by tenant
-router.get('/tenant/:tenantId', documentsController.getByTenantId)
+router.get('/tenant/:tenantId', requirePermission('documents', 'view'), documentsController.getByTenantId)
 
 // Get documents by owner
-router.get('/owner/:ownerId', documentsController.getByOwnerId)
+router.get('/owner/:ownerId', requirePermission('documents', 'view'), documentsController.getByOwnerId)
 
 // Get documents by contract
-router.get('/contract/:contractId', documentsController.getByContractId)
+router.get('/contract/:contractId', requirePermission('documents', 'view'), documentsController.getByContractId)
 
 // Get documents by apartment
-router.get('/apartment/:apartmentId', documentsController.getByApartmentId)
+router.get('/apartment/:apartmentId', requirePermission('documents', 'view'), documentsController.getByApartmentId)
 
-// Get document by ID
-router.get('/:id', documentsController.getById)
+// GET /api/documents - Get all documents
+router.get('/', requirePermission('documents', 'view'), documentsController.getAll)
 
-// Create document
-router.post('/', documentsController.create)
+// GET /api/documents/:id - Get document by ID
+router.get('/:id', requirePermission('documents', 'view'), documentsController.getById)
 
-// Upload file and create document
-router.post('/upload', upload.single('file'), documentsController.upload)
+// POST /api/documents - Upload document
+router.post('/', requirePermission('documents', 'upload'), memoryUpload.single('file'), handleMulterError, documentsController.upload)
 
-// Update document
-router.put('/:id', documentsController.update)
+// PUT /api/documents/:id - Update document metadata
+router.put('/:id', requirePermission('documents', 'upload'), documentsController.update)
 
-// Delete document
-router.delete('/:id', documentsController.remove)
+// DELETE /api/documents/:id - Delete document
+router.delete('/:id', requirePermission('documents', 'delete'), documentsController.remove)
 
 export default router

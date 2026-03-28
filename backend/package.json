@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "ts-node src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate && prisma migrate deploy && tsc",
     "start": "node dist/server.js",
     "prisma:deploy": "prisma migrate deploy && prisma generate",
     "prisma:generate": "prisma generate",
@@ -35,10 +35,13 @@
     "url": "https://github.com/tu-usuario/proyecto-inmobiliaria-api"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1013.0",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^6.19.1",
+    "@types/bcrypt": "^6.0.0",
     "@types/multer": "^2.0.0",
     "argon2": "^0.44.0",
+    "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

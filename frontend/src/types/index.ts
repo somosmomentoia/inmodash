@@ -41,7 +41,6 @@ export interface Owner {
   address: string
   bankAccount?: string
   commissionPercentage?: number // Porcentaje de comisión de la inmobiliaria
-  balance: number // Saldo del propietario (positivo = a favor, negativo = debe)
   createdAt: Date
   updatedAt: Date
   apartments?: Apartment[]
@@ -281,6 +280,12 @@ export interface Contract {
   startDate: Date
   endDate: Date
   initialAmount: number
+  commissionType?: CommissionType
+  commissionValue?: number
+  vendorId?: number
+  vendorCommissionPct?: number
+  signupFeeAmount?: number
+  contractExpenses?: number
   createdAt: Date
   updatedAt: Date
   apartment?: Apartment
@@ -288,6 +293,7 @@ export interface Contract {
   updateRule?: UpdateRule
   guarantors?: ContractGuarantor[]
   documents?: Document[] // Contrato y anexos
+  vendor?: Vendor
 }
 
 export interface UpdateRule {
@@ -308,13 +314,48 @@ export interface ContractGuarantor {
 }
 
 // ============================================================================
+// VENDORS & COMMISSIONS
+// ============================================================================
+
+export interface Vendor {
+  id: number
+  userId: number
+  name: string
+  email?: string
+  phone?: string
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+  _count?: { contracts: number; commissions: number }
+}
+
+export interface VendorCommission {
+  id: number
+  userId: number
+  vendorId: number
+  contractId: number
+  amount: number
+  status: 'pending' | 'paid'
+  paidAt?: Date
+  paymentMethod?: string
+  reference?: string
+  notes?: string
+  createdAt: Date
+  updatedAt: Date
+  vendor?: Vendor
+  contract?: Contract
+}
+
+// ============================================================================
 // OBLIGATIONS & PAYMENTS (NEW SYSTEM)
 // ============================================================================
 
-export type ObligationType = 'rent' | 'expenses' | 'service' | 'tax' | 'insurance' | 'maintenance' | 'debt'
+export type ObligationType = 'rent' | 'expenses' | 'service' | 'tax' | 'insurance' | 'maintenance' | 'debt' | 'income_other' | 'expense_other'
 export type ObligationStatus = 'pending' | 'partial' | 'paid' | 'overdue'
-export type PaymentMethod = 'cash' | 'transfer' | 'check' | 'card' | 'other' | 'owner_balance'
+export type PaymentMethod = 'cash' | 'transfer' | 'check' | 'card' | 'other'
 export type PaidBy = 'tenant' | 'owner' | 'agency'
+export type ChargeTo = 'tenant' | 'owner' | 'agency'
+export type ObligationOrigin = 'tenant_ledger' | 'cashflow' | 'liquidation_manual' | 'contract_auto'
 export type CommissionType = 'percentage' | 'fixed'
 
 export interface Obligation {
@@ -331,6 +372,9 @@ export interface Obligation {
   paidAmount: number
   // Distribución de dinero
   paidBy: PaidBy
+  chargeTo: ChargeTo
+  // Trazabilidad
+  origin?: ObligationOrigin
   ownerImpact: number
   agencyImpact: number
   // Legacy fields
@@ -373,9 +417,13 @@ export interface CreateObligationDto {
   amount: number
   // Quién paga la obligación (afecta distribución de dinero)
   paidBy?: PaidBy
+  // A quién se le carga esta obligación
+  chargeTo?: ChargeTo
   // Impacto en saldos (calculado automáticamente por backend si no se especifica)
   ownerImpact?: number
   agencyImpact?: number
+  // Trazabilidad
+  origin?: ObligationOrigin
   // Legacy fields
   commissionAmount?: number
   ownerAmount?: number
@@ -396,12 +444,9 @@ export interface CreateObligationPaymentDto {
   obligationId: number
   amount: number
   paymentDate: string | Date
-  method?: PaymentMethod | 'owner_balance'
+  method?: PaymentMethod
   reference?: string
   notes?: string
-  // Para pagos aplicados al saldo del propietario
-  appliedToOwnerBalance?: boolean
-  ownerId?: number
 }
 
 export interface UpdateObligationPaymentDto {
@@ -457,6 +502,9 @@ export interface CreateTaskDto {
   tenantId?: number
   obligationId?: number
   contactId?: number
+  assignedToStaffId?: number
+  relatedEntityType?: string
+  relatedEntityId?: number
 }
 
 export interface UpdateTaskDto {
@@ -471,6 +519,9 @@ export interface UpdateTaskDto {
   tenantId?: number
   obligationId?: number
   contactId?: number
+  assignedToStaffId?: number
+  relatedEntityType?: string
+  relatedEntityId?: number
 }
 
 export interface TaskStats {
@@ -686,4 +737,212 @@ export const PROSPECT_ACTIVITY_LABELS: Record<ProspectActivityType, string> = {
   contact_attempt: 'Intento de contacto',
   converted: 'Convertido a contrato',
   info_updated: 'Información actualizada',
+}
+
+// ============================================
+// STAFF USERS & PERMISSIONS
+// ============================================
+
+export enum StaffRole {
+  ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  ACCOUNTING = 'ACCOUNTING',
+  COLLECTIONS = 'COLLECTIONS',
+  LEASING = 'LEASING',
+  MAINTENANCE = 'MAINTENANCE',
+  READ_ONLY = 'READ_ONLY',
+}
+
+export interface StaffUser {
+  id: number
+  agencyId: number
+  email: string
+  name: string
+  role: StaffRole
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface UserPermission {
+  id: number
+  staffUserId: number
+  module: string
+  action: string
+  allowed: boolean
+}
+
+export interface PermissionTemplate {
+  module: string
+  action: string
+  allowed: boolean
+}
+
+export interface CreateStaffUserDto {
+  email: string
+  password: string
+  name: string
+  role: StaffRole
+}
+
+export interface UpdateStaffUserDto {
+  email?: string
+  name?: string
+  role?: StaffRole
+  isActive?: boolean
+}
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  ADMIN: 'Administrador',
+  MANAGER: 'Gerente',
+  ACCOUNTING: 'Contabilidad',
+  COLLECTIONS: 'Cobranzas',
+  LEASING: 'Alquileres',
+  MAINTENANCE: 'Mantenimiento',
+  READ_ONLY: 'Solo Lectura',
+}
+
+export const STAFF_ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
+  ADMIN: 'Acceso total al sistema',
+  MANAGER: 'Gestión general (excepto usuarios y configuración)',
+  ACCOUNTING: 'Contabilidad y finanzas',
+  COLLECTIONS: 'Cobranzas y pagos',
+  LEASING: 'Alquileres y contratos',
+  MAINTENANCE: 'Mantenimiento y propiedades',
+  READ_ONLY: 'Solo lectura en todos los módulos',
+}
+
+export const MODULE_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
+  prospects: 'Prospectos',
+  properties: 'Propiedades',
+  contracts: 'Contratos',
+  obligations: 'Cuenta Corriente',
+  finances: 'Finanzas',
+  tasks: 'Tareas',
+  documents: 'Documentos',
+  reports: 'Reportes',
+  settings: 'Configuración',
+  users: 'Usuarios',
+  integrations: 'Integraciones',
+}
+
+export const MODULE_DESCRIPTIONS: Record<string, string> = {
+  dashboard: '',
+  prospects: '',
+  properties: 'Unidades, Edificios y Propietarios',
+  contracts: 'Contratos, Inquilinos y Garantes',
+  obligations: 'Obligaciones y Pagos',
+  finances: 'Flujo de Caja, Contabilidad, Liquidaciones y Comisiones',
+  tasks: '',
+  documents: '',
+  reports: '',
+  settings: '',
+  users: '',
+  integrations: '',
+}
+
+export interface ActionDefinition {
+  key: string
+  label: string
+  description: string
+}
+
+export const MODULE_ACTIONS: Record<string, ActionDefinition[]> = {
+  dashboard: [
+    { key: 'view', label: 'Ver', description: 'Acceder al dashboard' },
+  ],
+  prospects: [
+    { key: 'view', label: 'Ver', description: 'Ver lista de prospectos' },
+    { key: 'create', label: 'Crear', description: 'Crear nuevo prospecto' },
+    { key: 'edit', label: 'Editar', description: 'Editar prospecto' },
+    { key: 'delete', label: 'Eliminar', description: 'Eliminar prospecto' },
+  ],
+  properties: [
+    { key: 'view', label: 'Ver', description: 'Ver propiedades, edificios y propietarios' },
+    { key: 'create', label: 'Crear', description: 'Crear propiedad, edificio o propietario' },
+    { key: 'edit', label: 'Editar', description: 'Editar propiedad, edificio o propietario' },
+    { key: 'delete', label: 'Eliminar', description: 'Eliminar propiedad, edificio o propietario' },
+  ],
+  contracts: [
+    { key: 'view', label: 'Ver', description: 'Ver contratos, inquilinos y garantes' },
+    { key: 'create', label: 'Crear', description: 'Crear contrato, inquilino o garante' },
+    { key: 'edit', label: 'Editar', description: 'Editar contrato, inquilino o garante' },
+    { key: 'delete', label: 'Eliminar', description: 'Eliminar contrato, inquilino o garante' },
+  ],
+  obligations: [
+    { key: 'view', label: 'Ver', description: 'Ver obligaciones y pagos' },
+    { key: 'create', label: 'Crear', description: 'Crear obligación' },
+    { key: 'edit', label: 'Editar', description: 'Editar obligación' },
+    { key: 'delete', label: 'Eliminar', description: 'Eliminar obligación' },
+    { key: 'register_payment', label: 'Registrar Pago', description: 'Registrar un pago contra una obligación' },
+    { key: 'generate_recurring', label: 'Generar Recurrentes', description: 'Generar obligaciones recurrentes' },
+  ],
+  finances: [
+    { key: 'view_cashflow', label: 'Ver Flujo de Caja', description: 'Ver movimientos de caja' },
+    { key: 'create_movement', label: 'Registrar Movimiento', description: 'Registrar ingreso o egreso en flujo de caja' },
+    { key: 'view_accounting', label: 'Ver Contabilidad', description: 'Ver asientos contables' },
+    { key: 'view_settlements', label: 'Ver Liquidaciones', description: 'Ver liquidaciones de propietarios' },
+    { key: 'settle_owners', label: 'Liquidar Propietarios', description: 'Ejecutar liquidación a propietarios' },
+    { key: 'view_commissions', label: 'Ver Comisiones', description: 'Ver comisiones de vendedores' },
+    { key: 'pay_commissions', label: 'Pagar Comisiones', description: 'Pagar comisiones a vendedores' },
+    { key: 'export', label: 'Exportar', description: 'Exportar datos financieros' },
+  ],
+  tasks: [
+    { key: 'view', label: 'Ver', description: 'Ver mis tareas' },
+    { key: 'create', label: 'Crear', description: 'Crear nueva tarea' },
+    { key: 'edit', label: 'Editar', description: 'Editar mis tareas' },
+    { key: 'delete', label: 'Eliminar', description: 'Eliminar mis tareas' },
+    { key: 'view_all', label: 'Ver Todas', description: 'Ver tareas de todos los usuarios' },
+    { key: 'manage_all', label: 'Gestionar Todas', description: 'Editar y eliminar tareas de cualquier usuario' },
+  ],
+  documents: [
+    { key: 'view', label: 'Ver', description: 'Ver documentos' },
+    { key: 'upload', label: 'Subir', description: 'Subir nuevos documentos' },
+    { key: 'download', label: 'Descargar', description: 'Descargar documentos' },
+    { key: 'delete', label: 'Eliminar', description: 'Eliminar documentos' },
+  ],
+  reports: [
+    { key: 'view', label: 'Ver', description: 'Ver reportes' },
+    { key: 'export', label: 'Exportar', description: 'Exportar y descargar reportes' },
+  ],
+  settings: [
+    { key: 'view', label: 'Ver', description: 'Ver configuración del sistema' },
+    { key: 'edit', label: 'Editar', description: 'Modificar configuración' },
+  ],
+  users: [
+    { key: 'view', label: 'Ver', description: 'Ver lista de usuarios' },
+    { key: 'create', label: 'Crear', description: 'Crear nuevo usuario' },
+    { key: 'edit', label: 'Editar', description: 'Editar datos y rol de usuario' },
+    { key: 'deactivate', label: 'Activar/Desactivar', description: 'Activar o desactivar usuario' },
+    { key: 'manage_permissions', label: 'Gestionar Permisos', description: 'Configurar permisos granulares' },
+  ],
+  integrations: [
+    { key: 'view', label: 'Ver', description: 'Ver integraciones' },
+    { key: 'configure', label: 'Configurar', description: 'Configurar integraciones' },
+  ],
+}
+
+export const ACTION_LABELS: Record<string, string> = {
+  view: 'Ver',
+  create: 'Crear',
+  edit: 'Editar',
+  delete: 'Eliminar',
+  export: 'Exportar',
+  upload: 'Subir',
+  download: 'Descargar',
+  configure: 'Configurar',
+  deactivate: 'Activar/Desactivar',
+  manage_permissions: 'Gestionar Permisos',
+  register_payment: 'Registrar Pago',
+  generate_recurring: 'Generar Recurrentes',
+  view_cashflow: 'Ver Flujo de Caja',
+  create_movement: 'Registrar Movimiento',
+  view_accounting: 'Ver Contabilidad',
+  view_settlements: 'Ver Liquidaciones',
+  settle_owners: 'Liquidar Propietarios',
+  view_commissions: 'Ver Comisiones',
+  pay_commissions: 'Pagar Comisiones',
+  view_all: 'Ver Todas',
+  manage_all: 'Gestionar Todas',
 }

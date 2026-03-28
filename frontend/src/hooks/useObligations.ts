@@ -20,8 +20,14 @@ export function useObligations(contractId?: number) {
       const data = await obligationsService.getAll(contractId)
       setObligations(data)
     } catch (err: any) {
-      setError(err.message || 'Error al cargar obligaciones')
-      console.error('Error fetching obligations:', err)
+      // If 403 Forbidden, user doesn't have permission - fail silently
+      if (err.message?.includes('Forbidden') || err.status === 403) {
+        setObligations([])
+        setError(null)
+      } else {
+        setError(err.message || 'Error al cargar obligaciones')
+        console.error('Error fetching obligations:', err)
+      }
     } finally {
       setLoading(false)
     }

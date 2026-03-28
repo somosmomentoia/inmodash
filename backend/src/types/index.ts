@@ -149,6 +149,12 @@ export interface CreateContractDto {
   updateFrequencyMonths?: number
   initialIndexValue?: number
   fixedUpdateCoefficient?: number
+  // Vendedor y comisiones contractuales (Fase 5)
+  vendorId?: number
+  vendorCommissionPct?: number
+  vendorCommissionAmount?: number
+  signupFeeAmount?: number
+  contractExpenses?: number
 }
 
 export interface UpdateContractDto {
@@ -202,6 +208,7 @@ export interface CreateDocumentDto {
   type: string
   fileName: string
   fileUrl: string
+  storageKey?: string
   fileSize: number
   mimeType: string
   description?: string

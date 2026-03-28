@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePermissions } from '@/hooks/usePermissions'
 import { Building2, Home, Plus, Search } from 'lucide-react'
 import {
   Button,
@@ -25,7 +26,8 @@ type PropertyFilter = 'all' | 'departamento' | 'casa' | 'cochera' | 'local_comer
 
 export default function UnitsContent() {
   const router = useRouter()
-  const { apartments, loading: apartmentsLoading, refresh } = useApartments()
+  const { apartments, loading: apartmentsLoading, refresh, createApartment, updateApartment, deleteApartment } = useApartments()
+  const { hasPermission } = usePermissions()
   const { buildings, loading: buildingsLoading } = useBuildings()
   const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>('all')
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all')
@@ -256,9 +258,11 @@ export default function UnitsContent() {
             />
           )}
         </div>
-        <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
-          Nueva Propiedad
-        </Button>
+        {hasPermission('properties', 'create') && (
+          <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
+            Nueva Propiedad
+          </Button>
+        )}
       </div>
 
       {/* Units List */}
@@ -270,9 +274,11 @@ export default function UnitsContent() {
               title="No hay propiedades"
               description="Comienza creando tu primera propiedad para gestionar tus alquileres."
               action={
-                <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
-                  Crear Propiedad
-                </Button>
+                hasPermission('properties', 'create') ? (
+                  <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
+                    Crear Propiedad
+                  </Button>
+                ) : undefined
               }
             />
           </CardContent>

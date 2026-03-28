@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { authenticate } from '../middleware/auth'
+import { requirePermission } from '../middleware/permissions'
 import {
   getProspects,
   getProspect,
@@ -20,20 +21,20 @@ const router = Router()
 router.use(authenticate)
 
 // Statistics and alerts (before :id routes to avoid conflicts)
-router.get('/stats', getProspectStats)
-router.get('/alerts/stale', getStaleProspects)
-router.get('/alerts/approved-pending', getApprovedPending)
+router.get('/stats', requirePermission('prospects', 'view'), getProspectStats)
+router.get('/alerts/stale', requirePermission('prospects', 'view'), getStaleProspects)
+router.get('/alerts/approved-pending', requirePermission('prospects', 'view'), getApprovedPending)
 
 // CRUD operations
-router.get('/', getProspects)
-router.get('/:id', getProspect)
-router.post('/', createProspect)
-router.put('/:id', updateProspect)
-router.delete('/:id', deleteProspect)
+router.get('/', requirePermission('prospects', 'view'), getProspects)
+router.get('/:id', requirePermission('prospects', 'view'), getProspect)
+router.post('/', requirePermission('prospects', 'create'), createProspect)
+router.put('/:id', requirePermission('prospects', 'edit'), updateProspect)
+router.delete('/:id', requirePermission('prospects', 'delete'), deleteProspect)
 
 // Status and actions
-router.put('/:id/status', changeProspectStatus)
-router.post('/:id/notes', addProspectNote)
-router.post('/:id/convert', convertProspect)
+router.put('/:id/status', requirePermission('prospects', 'edit'), changeProspectStatus)
+router.post('/:id/notes', requirePermission('prospects', 'edit'), addProspectNote)
+router.post('/:id/convert', requirePermission('prospects', 'edit'), convertProspect)
 
 export default router

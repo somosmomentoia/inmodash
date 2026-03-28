@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   Users,
   Plus,
@@ -48,6 +49,7 @@ type ProspectFilter = 'all' | ProspectStatus
 
 export default function ProspectsPage() {
   const router = useRouter()
+  const { hasPermission } = usePermissions()
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<ProspectFilter>('all')
@@ -160,12 +162,14 @@ export default function ProspectsPage() {
     >
       {/* Action Button */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-xl)' }}>
-        <Button
-          onClick={() => router.push('/prospects/new')}
-          leftIcon={<Plus size={18} />}
-        >
-          Nuevo Prospecto
-        </Button>
+        {hasPermission('prospects', 'create') && (
+          <Button
+            onClick={() => router.push('/prospects/new')}
+            leftIcon={<Plus size={18} />}
+          >
+            Nuevo Prospecto
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -250,11 +254,11 @@ export default function ProspectsPage() {
                   : 'No se encontraron prospectos con los filtros seleccionados.'
               }
               action={
-                activeTab === 'all' && (
+                activeTab === 'all' && hasPermission('prospects', 'create') ? (
                   <Button onClick={() => router.push('/prospects/new')} leftIcon={<Plus size={16} />}>
                     Nuevo Prospecto
                   </Button>
-                )
+                ) : undefined
               }
             />
           </CardContent>

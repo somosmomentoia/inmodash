@@ -130,7 +130,7 @@ export default function AccountingContent() {
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime())
 
-    // Calculate running balance
+    // Calculate running balance (oldest to newest)
     let runningBalance = 0
     dbEntriesFiltered.forEach((entry) => {
       if (entry.type === 'income') {
@@ -141,7 +141,8 @@ export default function AccountingContent() {
       entry.balance = runningBalance
     })
 
-    return dbEntriesFiltered
+    // Display newest first
+    return dbEntriesFiltered.reverse()
   }, [getPeriodRange, dbEntries])
 
   // Calculate totals
@@ -248,9 +249,14 @@ export default function AccountingContent() {
   }
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('es-AR', {
+    const d = new Date(date)
+    return d.toLocaleDateString('es-AR', {
       day: '2-digit',
       month: 'short',
+    }) + ' ' + d.toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
     })
   }
 

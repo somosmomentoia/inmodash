@@ -8,8 +8,10 @@ export interface Settlement {
   totalCollected: number
   ownerAmount: number
   commissionAmount: number
-  status: 'pending' | 'settled'
+  deductions: number
+  status: 'draft' | 'settled' | 'stale'
   settledAt?: Date
+  staleSince?: Date
   paymentMethod?: string
   reference?: string
   notes?: string
@@ -30,6 +32,7 @@ export interface CreateSettlementDto {
   totalCollected: number
   ownerAmount: number
   commissionAmount: number
+  deductions: number
   notes?: string
 }
 
@@ -70,5 +73,13 @@ export const settlementsService = {
 
   async delete(id: number): Promise<void> {
     await apiClient.delete(`/api/settlements/${id}`)
+  },
+
+  async recalculate(id: number): Promise<Settlement> {
+    return apiClient.put<Settlement>(`/api/settlements/${id}/recalculate`)
+  },
+
+  async dismissStale(id: number): Promise<{ settlement: Settlement; movedObligations: number; nextPeriod: string }> {
+    return apiClient.put(`/api/settlements/${id}/dismiss`)
   }
 }

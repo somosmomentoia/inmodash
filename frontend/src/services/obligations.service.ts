@@ -71,15 +71,6 @@ export const obligationsService = {
     return apiClient.post<{ message: string; count: number }>('/api/obligations/mark-overdue', {})
   },
 
-  // Recalculate all owner balances
-  async recalculateAllOwnerBalances(): Promise<any[]> {
-    return apiClient.post<any[]>('/api/obligations/recalculate-balances', {})
-  },
-
-  // Recalculate specific owner balance
-  async recalculateOwnerBalance(ownerId: number): Promise<any> {
-    return apiClient.post<any>(`/api/obligations/recalculate-balance/${ownerId}`, {})
-  }
 }
 
 // ============================================================================

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Wallet, CreditCard, AlertCircle, User, Building2 } from 'lucide-react'
+import { AlertCircle, User, Building2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { Modal, ModalFooter, Button, Input, Select } from '@/components/ui'
 import { useObligationPayments } from '@/hooks/useObligationPayments'
-import { Obligation, PaymentMethod, Owner, PaidBy } from '@/types'
+import { Obligation, PaymentMethod, PaidBy } from '@/types'
 import styles from './RegisterPaymentModal.module.css'
 
 interface RegisterPaymentModalProps {
@@ -84,10 +84,6 @@ export default function RegisterPaymentModal({
     return null
   }, [obligation.paidBy, tenant, owner])
 
-  const ownerBalance = useMemo(() => owner?.balance || 0, [owner])
-  const hasSufficientBalance = useMemo(() => ownerBalance >= remaining, [ownerBalance, remaining])
-
-  const [paymentType, setPaymentType] = useState<'owner_balance' | 'independent'>('independent')
   const [formData, setFormData] = useState({
     amount: remaining,
     paymentDate: format(new Date(), 'yyyy-MM-dd'),
@@ -98,7 +94,6 @@ export default function RegisterPaymentModal({
 
   useEffect(() => {
     if (open) {
-      setPaymentType(isOwnerObligation && owner && hasSufficientBalance ? 'owner_balance' : 'independent')
       setFormData({
         amount: remaining,
         paymentDate: format(new Date(), 'yyyy-MM-dd'),
@@ -108,7 +103,7 @@ export default function RegisterPaymentModal({
       })
       setError(null)
     }
-  }, [open, isOwnerObligation, owner, remaining, hasSufficientBalance])
+  }, [open, remaining])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,22 +117,15 @@ export default function RegisterPaymentModal({
       setError(`El monto no puede exceder el saldo pendiente ($${remaining.toLocaleString('es-AR')})`)
       return
     }
-    if (paymentType === 'owner_balance' && owner && ownerBalance < formData.amount) {
-      setError(`Saldo insuficiente. Disponible: $${ownerBalance.toLocaleString('es-AR')}`)
-      return
-    }
-
     try {
       setLoading(true)
       await createPayment({
         obligationId: obligation.id,
         amount: formData.amount,
         paymentDate: formData.paymentDate,
-        method: paymentType === 'owner_balance' ? 'owner_balance' : formData.method,
+        method: formData.method,
         reference: formData.reference || undefined,
-        notes: formData.notes || undefined,
-        appliedToOwnerBalance: paymentType === 'owner_balance',
-        ownerId: paymentType === 'owner_balance' && owner ? owner.id : undefined
+        notes: formData.notes || undefined
       })
       onSuccess()
     } catch (err: any) {
@@ -201,61 +189,6 @@ export default function RegisterPaymentModal({
           </div>
         )}
 
-        {/* Selector de tipo de pago - Solo para obligaciones del propietario */}
-        {isOwnerObligation && owner && (
-          <div className={styles.paymentTypeSection}>
-            <label className={styles.sectionLabel}>Tipo de Pago</label>
-            <div className={styles.paymentTypeGrid}>
-              <button
-                type="button"
-                onClick={() => hasSufficientBalance && setPaymentType('owner_balance')}
-                disabled={!hasSufficientBalance}
-                className={`${styles.paymentTypeCard} ${paymentType === 'owner_balance' ? styles.paymentTypeCardActive : ''} ${!hasSufficientBalance ? styles.paymentTypeCardDisabled : ''}`}
-              >
-                <Wallet size={20} />
-                <span className={styles.paymentTypeTitle}>Aplicar Saldo</span>
-                <span className={styles.paymentTypeDesc}>Del propietario</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentType('independent')}
-                className={`${styles.paymentTypeCard} ${paymentType === 'independent' ? styles.paymentTypeCardActive : ''}`}
-              >
-                <CreditCard size={20} />
-                <span className={styles.paymentTypeTitle}>Pago Directo</span>
-                <span className={styles.paymentTypeDesc}>Transferencia, efectivo</span>
-              </button>
-            </div>
-
-            {/* Info del saldo del propietario */}
-            {paymentType === 'owner_balance' && hasSufficientBalance && (
-              <div className={styles.ownerBalanceCard}>
-                <div>
-                  <span className={styles.ownerName}>{owner.name}</span>
-                  <span className={styles.ownerRole}>Propietario</span>
-                </div>
-                <div className={styles.ownerBalanceAmount}>
-                  ${ownerBalance.toLocaleString('es-AR')}
-                  <span>disponible</span>
-                </div>
-              </div>
-            )}
-
-            {/* Aviso de saldo insuficiente */}
-            {!hasSufficientBalance && (
-              <div className={styles.warningBox}>
-                <Wallet size={14} />
-                <span>
-                  {ownerBalance <= 0 
-                    ? 'Sin saldo disponible'
-                    : `Saldo insuficiente ($${ownerBalance.toLocaleString('es-AR')} disponible)`
-                  }
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Error */}
         {error && (
           <div className={styles.errorBox}>
@@ -286,8 +219,7 @@ export default function RegisterPaymentModal({
           />
         </div>
 
-        {paymentType === 'independent' && (
-          <div className={styles.fieldsGrid}>
+        <div className={styles.fieldsGrid}>
             <Select
               label="Método de pago"
               options={PAYMENT_METHODS.map(m => ({ value: m.value, label: m.label }))}
@@ -301,7 +233,6 @@ export default function RegisterPaymentModal({
               placeholder="#12345, CBU, etc."
             />
           </div>
-        )}
 
         <Input
           label="Notas"
@@ -315,7 +246,7 @@ export default function RegisterPaymentModal({
             Cancelar
           </Button>
           <Button type="submit" loading={loading}>
-            {paymentType === 'owner_balance' ? 'Aplicar Saldo' : 'Registrar Pago'}
+            Registrar Pago
           </Button>
         </ModalFooter>
       </form>

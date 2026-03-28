@@ -95,6 +95,42 @@ export const remove = async (req: Request, res: Response) => {
   }
 }
 
+export const recalculate = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId
+    const id = parseInt(req.params.id)
+    
+    const settlement = await settlementsService.recalculate(id, userId)
+    res.json(settlement)
+  } catch (error: any) {
+    if (error.message.includes('not found')) {
+      res.status(404).json({ error: error.message })
+    } else if (error.message.includes('not stale')) {
+      res.status(400).json({ error: error.message })
+    } else {
+      res.status(500).json({ error: error.message })
+    }
+  }
+}
+
+export const dismissStale = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId
+    const id = parseInt(req.params.id)
+    
+    const result = await settlementsService.dismissStale(id, userId)
+    res.json(result)
+  } catch (error: any) {
+    if (error.message.includes('not found')) {
+      res.status(404).json({ error: error.message })
+    } else if (error.message.includes('not stale')) {
+      res.status(400).json({ error: error.message })
+    } else {
+      res.status(500).json({ error: error.message })
+    }
+  }
+}
+
 export const calculateForPeriod = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId

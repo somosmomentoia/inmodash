@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import indicesController from '../controllers/indices.controller'
+import { indicesController } from '../controllers/indices.controller'
 import { authenticate } from '../middleware/auth'
 
 const router = Router()
@@ -9,7 +9,7 @@ router.get('/icl', indicesController.getICL)
 router.get('/ipc', indicesController.getIPC)
 router.get('/all', indicesController.getAll)
 
-// Ruta protegida para cálculos
+// Ruta protegida para cálculos (requiere autenticación)
 router.post('/calculate', authenticate, indicesController.calculateUpdate)
 
 export default router

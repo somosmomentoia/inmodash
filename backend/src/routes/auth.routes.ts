@@ -216,7 +216,7 @@ router.post('/login', async (req, res) => {
 
 /**
  * GET /api/auth/me
- * Get current user info
+ * Get current user info (Owner or Staff)
  */
 router.get('/me', async (req, res) => {
   try {
@@ -248,7 +248,40 @@ router.get('/me', async (req, res) => {
       })
     }
 
-    // Get user from database
+    console.log('🔐 Token payload:', { isStaff: payload.isStaff, staffUserId: payload.staffUserId });
+
+    // Check if it's a staff user
+    if (payload.isStaff && payload.staffUserId) {
+      // Get staff user from database
+      const staffUser = await prisma.staffUser.findUnique({
+        where: { id: payload.staffUserId },
+        select: {
+          id: true,
+          agencyId: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          lastLoginAt: true
+        }
+      })
+
+      if (!staffUser) {
+        return res.status(404).json({ 
+          error: 'Staff user not found' 
+        })
+      }
+
+      return res.json({
+        success: true,
+        user: {
+          ...staffUser,
+          isStaff: true
+        }
+      })
+    }
+
+    // Get owner user from database
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       select: {

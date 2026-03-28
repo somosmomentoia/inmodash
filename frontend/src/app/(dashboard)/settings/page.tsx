@@ -20,6 +20,12 @@ import {
   Calendar,
   AlertCircle,
   PiggyBank,
+  Plus,
+  Pencil,
+  Trash2,
+  UserCheck,
+  UserX,
+  UserCog,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout'
 import {
@@ -34,6 +40,9 @@ import {
   Badge,
 } from '@/components/ui'
 import { usePreferences, NotificationPreferences } from '@/hooks/usePreferences'
+import { useVendors } from '@/hooks/useVendors'
+import { Vendor } from '@/types'
+import { UsersContent } from './users-content'
 import styles from './settings.module.css'
 
 const defaultNotificationPrefs: NotificationPreferences = {
@@ -64,13 +73,13 @@ const defaultWidgets: DashboardWidget[] = [
   { id: 'trends', name: 'Tendencias', description: 'Gráfico de evolución', icon: <TrendingUp size={18} />, enabled: false, order: 8 },
 ]
 
-type TabType = 'general' | 'dashboard' | 'commissions' | 'notifications' | 'whatsapp'
+type TabType = 'general' | 'dashboard' | 'commissions' | 'vendors' | 'notifications' | 'whatsapp' | 'users'
 
 function SettingsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const tabParam = searchParams.get('tab') as TabType | null
-  const validTabs = ['general', 'dashboard', 'commissions', 'notifications', 'whatsapp']
+  const validTabs = ['general', 'dashboard', 'commissions', 'vendors', 'notifications', 'whatsapp', 'users']
   const [activeTab, setActiveTab] = useState<TabType>(tabParam && validTabs.includes(tabParam) ? tabParam : 'general')
 
   useEffect(() => {
@@ -92,6 +101,14 @@ function SettingsPageContent() {
   const [defaultCommission, setDefaultCommission] = useState('10')
   const [lateInterestRate, setLateInterestRate] = useState('2')
   const [gracePeriodDays, setGracePeriodDays] = useState('5')
+
+  // Vendors
+  const { vendors, loading: vendorsLoading, createVendor, updateVendor, deleteVendor } = useVendors()
+  const [showVendorModal, setShowVendorModal] = useState(false)
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null)
+  const [vendorForm, setVendorForm] = useState({ name: '', email: '', phone: '' })
+  const [vendorSaving, setVendorSaving] = useState(false)
+  const [vendorDeleting, setVendorDeleting] = useState<number | null>(null)
   
   // Notification preferences
   const { preferences, setNotificationPreferences, loading: prefsLoading } = usePreferences()
@@ -105,6 +122,8 @@ function SettingsPageContent() {
     { id: 'general', label: 'General', icon: <Settings size={16} /> },
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
     { id: 'commissions', label: 'Comisiones', icon: <Percent size={16} /> },
+    { id: 'vendors', label: 'Vendedores', icon: <Users size={16} /> },
+    { id: 'users', label: 'Usuarios', icon: <UserCog size={16} /> },
     { id: 'notifications', label: 'Notificaciones', icon: <Bell size={16} /> },
     { id: 'whatsapp', label: 'WhatsApp', icon: <MessageSquare size={16} /> },
   ]
@@ -135,6 +154,64 @@ function SettingsPageContent() {
     // TODO: Save settings
     await new Promise((resolve) => setTimeout(resolve, 1000))
     setSaving(false)
+  }
+
+  const openNewVendor = () => {
+    setEditingVendor(null)
+    setVendorForm({ name: '', email: '', phone: '' })
+    setShowVendorModal(true)
+  }
+
+  const openEditVendor = (vendor: Vendor) => {
+    setEditingVendor(vendor)
+    setVendorForm({ name: vendor.name, email: vendor.email || '', phone: vendor.phone || '' })
+    setShowVendorModal(true)
+  }
+
+  const handleVendorSubmit = async () => {
+    if (!vendorForm.name.trim()) return
+    setVendorSaving(true)
+    try {
+      if (editingVendor) {
+        await updateVendor(editingVendor.id, {
+          name: vendorForm.name,
+          email: vendorForm.email || undefined,
+          phone: vendorForm.phone || undefined,
+        })
+      } else {
+        await createVendor({
+          name: vendorForm.name,
+          email: vendorForm.email || undefined,
+          phone: vendorForm.phone || undefined,
+        })
+      }
+      setShowVendorModal(false)
+      setEditingVendor(null)
+    } catch (err: any) {
+      alert(err.message || 'Error al guardar vendedor')
+    } finally {
+      setVendorSaving(false)
+    }
+  }
+
+  const handleDeleteVendor = async (id: number) => {
+    if (!confirm('¿Eliminar este vendedor? Las comisiones asociadas no se eliminarán.')) return
+    setVendorDeleting(id)
+    try {
+      await deleteVendor(id)
+    } catch (err: any) {
+      alert(err.message || 'Error al eliminar vendedor')
+    } finally {
+      setVendorDeleting(null)
+    }
+  }
+
+  const handleToggleVendorActive = async (vendor: Vendor) => {
+    try {
+      await updateVendor(vendor.id, { isActive: !vendor.isActive })
+    } catch (err: any) {
+      alert(err.message || 'Error al actualizar vendedor')
+    }
   }
 
   return (
@@ -350,6 +427,126 @@ function SettingsPageContent() {
           </>
         )}
 
+        {activeTab === 'vendors' && (
+          <Card>
+            <CardHeader
+              title="Vendedores"
+              subtitle="Gestiona los vendedores de tu inmobiliaria"
+            />
+            <CardContent>
+              <div className={styles.vendorActions}>
+                <Button onClick={openNewVendor} leftIcon={<Plus size={16} />}>
+                  Nuevo Vendedor
+                </Button>
+              </div>
+
+              {vendorsLoading ? (
+                <div className={styles.vendorLoading}>Cargando vendedores...</div>
+              ) : vendors.length === 0 ? (
+                <div className={styles.vendorEmpty}>
+                  <Users size={40} />
+                  <p>No hay vendedores registrados</p>
+                  <p className={styles.vendorEmptyHint}>Los vendedores se asignan al crear contratos para gestionar sus comisiones.</p>
+                </div>
+              ) : (
+                <div className={styles.vendorList}>
+                  {vendors.map((vendor) => (
+                    <div key={vendor.id} className={`${styles.vendorItem} ${!vendor.isActive ? styles.vendorItemInactive : ''}`}>
+                      <div className={styles.vendorInfo}>
+                        <div className={styles.vendorName}>
+                          {vendor.name}
+                          {!vendor.isActive && <Badge variant="default" size="sm">Inactivo</Badge>}
+                        </div>
+                        <div className={styles.vendorMeta}>
+                          {vendor.email && <span>{vendor.email}</span>}
+                          {vendor.email && vendor.phone && <span>·</span>}
+                          {vendor.phone && <span>{vendor.phone}</span>}
+                          {vendor._count && (
+                            <span className={styles.vendorCount}>
+                              · {vendor._count.contracts} contratos · {vendor._count.commissions} comisiones
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className={styles.vendorItemActions}>
+                        <button
+                          className={styles.vendorBtn}
+                          onClick={() => handleToggleVendorActive(vendor)}
+                          title={vendor.isActive ? 'Desactivar' : 'Activar'}
+                        >
+                          {vendor.isActive ? <UserCheck size={16} /> : <UserX size={16} />}
+                        </button>
+                        <button
+                          className={styles.vendorBtn}
+                          onClick={() => openEditVendor(vendor)}
+                          title="Editar"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          className={`${styles.vendorBtn} ${styles.vendorBtnDanger}`}
+                          onClick={() => handleDeleteVendor(vendor.id)}
+                          disabled={vendorDeleting === vendor.id}
+                          title="Eliminar"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Vendor Modal */}
+        {showVendorModal && (
+          <div className={styles.modalBackdrop} onClick={() => setShowVendorModal(false)}>
+            <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>
+                {editingVendor ? 'Editar Vendedor' : 'Nuevo Vendedor'}
+              </h3>
+              <div className={styles.modalBody}>
+                <Input
+                  label="Nombre *"
+                  value={vendorForm.name}
+                  onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })}
+                  placeholder="Nombre del vendedor"
+                  fullWidth
+                />
+                <Input
+                  label="Email"
+                  type="email"
+                  value={vendorForm.email}
+                  onChange={(e) => setVendorForm({ ...vendorForm, email: e.target.value })}
+                  placeholder="vendedor@email.com"
+                  fullWidth
+                />
+                <Input
+                  label="Teléfono"
+                  value={vendorForm.phone}
+                  onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })}
+                  placeholder="+54 11 1234-5678"
+                  fullWidth
+                />
+              </div>
+              <div className={styles.modalFooter}>
+                <Button variant="secondary" onClick={() => setShowVendorModal(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleVendorSubmit}
+                  loading={vendorSaving}
+                  disabled={!vendorForm.name.trim()}
+                >
+                  {editingVendor ? 'Guardar' : 'Crear Vendedor'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'notifications' && (
           <Card>
             <CardHeader
@@ -461,6 +658,8 @@ function SettingsPageContent() {
             </CardContent>
           </Card>
         )}
+
+        {activeTab === 'users' && <UsersContent />}
 
         <div className={styles.actions}>
           <Button

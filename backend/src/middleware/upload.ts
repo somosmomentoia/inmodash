@@ -2,19 +2,18 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 
-// Crear directorio de uploads si no existe
+// Crear directorio de uploads si no existe (fallback local)
 const uploadsDir = path.join(__dirname, '../../uploads')
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
-// Configuración de almacenamiento
-const storage = multer.diskStorage({
+// Disk storage (legacy — used by contract document upload route)
+const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir)
   },
   filename: (req, file, cb) => {
-    // Generar nombre único: timestamp-random-originalname
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
     const ext = path.extname(file.originalname)
     const nameWithoutExt = path.basename(file.originalname, ext)
@@ -22,9 +21,11 @@ const storage = multer.diskStorage({
   }
 })
 
+// Memory storage (buffer — for R2/cloud upload)
+const memStorage = multer.memoryStorage()
+
 // Filtro de archivos permitidos
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Permitir documentos comunes
   const allowedMimes = [
     'application/pdf',
     'application/msword',
@@ -45,9 +46,18 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   }
 }
 
-// Configuración de multer
+// Disk-based upload (legacy for contract document path)
 export const upload = multer({
-  storage,
+  storage: diskStorage,
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB máximo
+  }
+})
+
+// Memory-based upload (for R2/cloud storage)
+export const memoryUpload = multer({
+  storage: memStorage,
   fileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB máximo

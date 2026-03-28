@@ -24,35 +24,37 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSidebar } from '@/contexts/SidebarContext'
+import { usePermissions } from '@/hooks/usePermissions'
 import styles from './Sidebar.module.css'
 
 interface NavItem {
   icon: React.ReactNode
   label: string
   href: string
+  module?: string // Permission module name
 }
 
 // Main navigation items
 const mainNavItems: NavItem[] = [
-  { icon: <LayoutDashboard size={22} />, label: 'Dashboard', href: '/dashboard' },
-  { icon: <Users size={22} />, label: 'Prospectos', href: '/prospects' },
-  { icon: <Building2 size={22} />, label: 'Alquileres', href: '/properties' },
-  { icon: <FileText size={22} />, label: 'Contratos', href: '/contracts' },
-  { icon: <Wallet size={22} />, label: 'Cuenta Corriente', href: '/obligations' },
-  { icon: <PiggyBank size={22} />, label: 'Finanzas', href: '/finances' },
-  { icon: <CheckSquare size={22} />, label: 'Tareas', href: '/tasks' },
-  { icon: <FolderOpen size={22} />, label: 'Documentos', href: '/documents' },
-  { icon: <FileBarChart size={22} />, label: 'Centro de Análisis', href: '/reports' },
+  { icon: <LayoutDashboard size={22} />, label: 'Dashboard', href: '/dashboard', module: 'dashboard' },
+  { icon: <Users size={22} />, label: 'Prospectos', href: '/prospects', module: 'prospects' },
+  { icon: <Building2 size={22} />, label: 'Alquileres', href: '/properties', module: 'properties' },
+  { icon: <FileText size={22} />, label: 'Contratos', href: '/contracts', module: 'contracts' },
+  { icon: <Wallet size={22} />, label: 'Cuenta Corriente', href: '/obligations', module: 'obligations' },
+  { icon: <PiggyBank size={22} />, label: 'Finanzas', href: '/finances', module: 'finances' },
+  { icon: <CheckSquare size={22} />, label: 'Tareas', href: '/tasks', module: 'tasks' },
+  { icon: <FolderOpen size={22} />, label: 'Documentos', href: '/documents', module: 'documents' },
+  { icon: <FileBarChart size={22} />, label: 'Centro de Análisis', href: '/reports', module: 'reports' },
 ]
 
 // Tools & Integrations section
 const toolsNavItems: NavItem[] = [
-  { icon: <Plug size={22} />, label: 'Integraciones', href: '/integrations' },
+  { icon: <Plug size={22} />, label: 'Integraciones', href: '/integrations', module: 'integrations' },
 ]
 
 // Settings section
 const settingsNavItems: NavItem[] = [
-  { icon: <Sliders size={22} />, label: 'Configuración', href: '/settings' },
+  { icon: <Sliders size={22} />, label: 'Configuración', href: '/settings', module: 'settings' },
 ]
 
 export function Sidebar() {
@@ -60,6 +62,32 @@ export function Sidebar() {
   const { isExpanded, isPinned, setIsExpanded, setIsPinned } = useSidebar()
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { logout } = useAuth()
+  const { canViewModule, loading: permissionsLoading, isStaff, permissions } = usePermissions()
+
+  // Filter navigation items based on permissions
+  const visibleMainNavItems = mainNavItems.filter(item => {
+    const canView = !item.module || canViewModule(item.module)
+    if (item.module) {
+      console.log(`🔍 Module ${item.module}: canView=${canView}, isStaff=${isStaff}`)
+    }
+    return canView
+  })
+  const visibleToolsNavItems = toolsNavItems.filter(item => 
+    !item.module || canViewModule(item.module)
+  )
+  const visibleSettingsNavItems = settingsNavItems.filter(item => 
+    !item.module || canViewModule(item.module)
+  )
+
+  // Debug log
+  useEffect(() => {
+    console.log('🎯 Sidebar permissions state:', { 
+      isStaff, 
+      permissionsCount: permissions.length,
+      loading: permissionsLoading,
+      visibleItems: visibleMainNavItems.length 
+    })
+  }, [isStaff, permissions, permissionsLoading, visibleMainNavItems])
 
   // Persist pinned state in localStorage
   useEffect(() => {
@@ -136,7 +164,7 @@ export function Sidebar() {
 
       {/* Main Navigation */}
       <nav className={styles.nav}>
-        {mainNavItems.map((item) => (
+        {visibleMainNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -150,10 +178,10 @@ export function Sidebar() {
         ))}
 
         {/* Separator - Tools */}
-        <div className={styles.navSeparator} />
+        {visibleToolsNavItems.length > 0 && <div className={styles.navSeparator} />}
 
         {/* Tools & Integrations */}
-        {toolsNavItems.map((item) => (
+        {visibleToolsNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -170,10 +198,10 @@ export function Sidebar() {
       {/* Bottom Actions */}
       <div className={styles.bottomActions}>
         {/* Separator - Settings */}
-        <div className={styles.navSeparator} />
+        {visibleSettingsNavItems.length > 0 && <div className={styles.navSeparator} />}
 
         {/* Settings Section */}
-        {settingsNavItems.map((item) => (
+        {visibleSettingsNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}

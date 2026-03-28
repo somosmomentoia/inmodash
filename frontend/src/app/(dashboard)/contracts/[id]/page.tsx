@@ -27,6 +27,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
+  DollarSign,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout'
 import { Button, Modal, ModalFooter, Input, Select, Badge } from '@/components/ui'
@@ -38,6 +39,7 @@ import { useContractDocuments, useDocuments } from '@/hooks/useDocuments'
 import { useObligations } from '@/hooks/useObligations'
 import { Document, Obligation } from '@/types'
 import { PDFViewer } from '@/components/ui/PDFViewer'
+import RentAdjustmentsPanel from '@/components/contracts/RentAdjustmentsPanel'
 import styles from './contract-detail.module.css'
 
 export default function ContractDetailPage() {
@@ -265,6 +267,7 @@ export default function ContractDetailPage() {
             { id: 'ledger', label: 'Cuenta Corriente', icon: Receipt },
             { id: 'guarantors', label: 'Garantes', icon: Shield },
             { id: 'documents', label: 'Documentos', icon: FolderOpen },
+            { id: 'index', label: 'Índice', icon: TrendingUp },
             { id: 'history', label: 'Historial', icon: Clock },
           ].map((tab) => {
             const Icon = tab.icon
@@ -445,6 +448,51 @@ export default function ContractDetailPage() {
                 </div>
               )}
 
+              {/* Vendedor y Comisiones Contractuales */}
+              {(contract.vendorId || contract.signupFeeAmount || contract.contractExpenses) && (
+                <div className={styles.glassCard} style={{ marginBottom: 'var(--spacing-xl)' }}>
+                  <div className={styles.cardHeader}>
+                    <div className={`${styles.cardIcon} ${styles.cardIconGreen}`}>
+                      <DollarSign size={20} />
+                    </div>
+                    <div>
+                      <div className={styles.cardTitle}>Comisiones Contractuales</div>
+                      <div className={styles.cardSubtitle}>Vendedor, comisión de alta y gastos</div>
+                    </div>
+                  </div>
+                  <div className={styles.termsGrid}>
+                    {contract.vendor && (
+                      <div className={styles.infoRow}>
+                        <div className={styles.infoLabel}>Vendedor</div>
+                        <div className={styles.infoValue}>{contract.vendor.name}</div>
+                      </div>
+                    )}
+                    {contract.vendorCommissionPct != null && contract.vendorCommissionPct > 0 && (
+                      <div className={styles.infoRow}>
+                        <div className={styles.infoLabel}>% Comisión Vendedor</div>
+                        <div className={styles.infoValue}>{contract.vendorCommissionPct}%</div>
+                      </div>
+                    )}
+                    {contract.signupFeeAmount != null && contract.signupFeeAmount > 0 && (
+                      <div className={styles.infoRow}>
+                        <div className={styles.infoLabel}>Comisión de Alta</div>
+                        <div className={styles.infoValueGreen}>
+                          ${Number(contract.signupFeeAmount).toLocaleString('es-AR')}
+                        </div>
+                      </div>
+                    )}
+                    {contract.contractExpenses != null && contract.contractExpenses > 0 && (
+                      <div className={styles.infoRow}>
+                        <div className={styles.infoLabel}>Gastos de Contrato</div>
+                        <div className={styles.infoValueGreen}>
+                          ${Number(contract.contractExpenses).toLocaleString('es-AR')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Metadata */}
               <div className={styles.glassCard}>
                 <div className={styles.cardTitle} style={{ marginBottom: 'var(--spacing-lg)' }}>Información del Sistema</div>
@@ -556,7 +604,9 @@ export default function ContractDetailPage() {
                                obligation.type === 'service' ? 'Servicio' :
                                obligation.type === 'tax' ? 'Impuesto' :
                                obligation.type === 'maintenance' ? 'Mantenimiento' :
-                               obligation.type === 'debt' ? 'Deuda/Ajuste' : obligation.type}
+                               obligation.type === 'debt' ? 'Deuda/Ajuste' :
+                               obligation.type === 'income_other' ? (obligation.category === 'signup_fee' ? 'Comisión de Alta' : obligation.category === 'contract_expenses' ? 'Gastos de Contrato' : 'Ingreso Otro') :
+                               obligation.type === 'expense_other' ? 'Egreso Otro' : obligation.type}
                               {' • '}
                               {new Date(obligation.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
@@ -780,6 +830,10 @@ export default function ContractDetailPage() {
                 </Link>
               </div>
             </div>
+          )}
+
+          {activeTab === 'index' && (
+            <RentAdjustmentsPanel contractId={contractId} />
           )}
 
           {activeTab === 'history' && (

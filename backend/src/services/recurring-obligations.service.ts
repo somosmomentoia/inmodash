@@ -1,5 +1,6 @@
 import prisma from '../config/database'
 import arglyService from './argly.service'
+import { rentAdjustmentsService } from './rent-adjustments.service'
 
 // Crear una recurrencia
 export const create = async (data: {
@@ -286,11 +287,13 @@ export const generateForMonth = async (month: string, userId: number) => {
       let updateDetails: { coefficient?: number; percentageIncrease?: number; newIndexValue?: number } = {}
 
       // Verificar si corresponde aplicar actualización por índice
+      let isUpdatePeriod = false
       if (recurring.type === 'rent' && recurring.updateIndexType && recurring.updateIndexType !== 'none' && recurring.updateFrequencyMonths) {
         const periodsSinceUpdate = (recurring.periodsSinceUpdate || 0) + 1
         
         // Si llegamos al período de actualización
         if (periodsSinceUpdate >= recurring.updateFrequencyMonths) {
+          isUpdatePeriod = true
           try {
             if (recurring.updateIndexType === 'fixed' && recurring.fixedUpdateCoefficient) {
               // Actualización por coeficiente fijo
@@ -346,6 +349,19 @@ export const generateForMonth = async (month: string, userId: number) => {
         description = `${recurring.description} (Actualizado ${updateDetails.percentageIncrease.toFixed(1)}% por ${recurring.updateIndexType?.toUpperCase()})`
       }
 
+      // Determine chargeTo based on type and paidBy
+      const paidByValue = recurring.paidBy || 'tenant'
+      let chargeTo = 'tenant'
+      if (recurring.type === 'rent') {
+        chargeTo = 'tenant'
+      } else if (ownerImpact !== 0) {
+        chargeTo = 'owner'
+      } else if (agencyImpact !== 0) {
+        chargeTo = 'agency'
+      } else {
+        chargeTo = paidByValue
+      }
+
       // Crear la obligación
       await prisma.obligation.create({
         data: {
@@ -359,7 +375,9 @@ export const generateForMonth = async (month: string, userId: number) => {
           period: periodStart,
           dueDate,
           amount: amountToUse,
-          paidBy: recurring.paidBy || 'tenant',
+          paidBy: paidByValue,
+          chargeTo,
+          origin: 'contract_auto',
           commissionAmount,
           ownerAmount,
           ownerImpact,
@@ -370,6 +388,41 @@ export const generateForMonth = async (month: string, userId: number) => {
             : recurring.notes
         }
       })
+
+      // Registrar ajuste en historial SIEMPRE que sea período de actualización (incluso si coef=1.0)
+      if (isUpdatePeriod && recurring.contractId) {
+        try {
+          const previousAmount = recurring.currentAmount || recurring.amount
+          const originalIndexValue = recurring.updateIndexType === 'fixed'
+            ? (recurring.fixedUpdateCoefficient || 1)
+            : (updateDetails.newIndexValue || recurring.initialIndexValue || 0)
+          
+          const adjNotes = updateApplied
+            ? (updateDetails.percentageIncrease && updateDetails.percentageIncrease !== 0
+              ? `Ajuste automático por ${recurring.updateIndexType?.toUpperCase()} (${updateDetails.percentageIncrease > 0 ? '+' : ''}${updateDetails.percentageIncrease.toFixed(1)}%)`
+              : `Período de actualización procesado — índice sin variación (${recurring.updateIndexType?.toUpperCase()})`)
+            : `Período de actualización — no se pudo obtener el índice`
+          
+          await rentAdjustmentsService.create({
+            userId,
+            contractId: recurring.contractId,
+            recurringObligationId: recurring.id,
+            period: periodStart,
+            indexType: recurring.updateIndexType || 'unknown',
+            originalIndexValue,
+            appliedIndexValue: originalIndexValue,
+            baseIndexValue: recurring.initialIndexValue || 1,
+            baseAmount: recurring.amount,
+            previousAmount,
+            newAmount: amountToUse,
+            coefficient: updateDetails.coefficient || 1,
+            percentageIncrease: updateDetails.percentageIncrease || 0,
+            notes: adjNotes,
+          })
+        } catch (adjError) {
+          console.error(`Error al registrar ajuste para recurrencia ${recurring.id}:`, adjError)
+        }
+      }
 
       // Actualizar lastGenerated y datos de actualización
       const updateData: Record<string, unknown> = { lastGenerated: periodStart }

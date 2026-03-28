@@ -40,7 +40,6 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   check: 'Cheque',
   card: 'Tarjeta',
   other: 'Otro',
-  owner_balance: 'Saldo Propietario'
 }
 
 export default function PaymentsPage() {

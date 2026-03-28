@@ -2,9 +2,11 @@ import jwt from 'jsonwebtoken'
 import config from '../../config/env'
 
 export interface TokenPayload {
-  userId: number
+  userId: number      // ID de la agencia (User)
   email: string
   role: string
+  staffUserId?: number  // ID del StaffUser (opcional, solo para staff)
+  isStaff?: boolean     // true si es staff, false/undefined si es owner
 }
 
 /**

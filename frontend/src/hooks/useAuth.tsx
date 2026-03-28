@@ -141,8 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
+    // Try Owner login first
     try {
-      const response = await fetch(`${config.apiUrl}/api/auth/login`, {
+      console.log('🔐 Trying Owner login...');
+      const ownerResponse = await fetch(`${config.apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,35 +153,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const ownerData = await ownerResponse.json();
 
-      if (response.ok && data.success && data.user) {
-        // Cookies are handled automatically by the browser
-        console.log('🔥 Login successful:', data.user.email);
+      if (ownerResponse.ok && ownerData.success && ownerData.user) {
+        console.log('✅ Owner login successful:', ownerData.user.email);
         
-        // Store token in localStorage as fallback for mobile
-        if (data.accessToken) {
-          localStorage.setItem('auth-token', data.accessToken);
-          console.log('💾 Token saved to localStorage');
+        if (ownerData.accessToken) {
+          localStorage.setItem('auth-token', ownerData.accessToken);
+          console.log('� Token saved to localStorage');
         }
         
         setAuthState({
-          user: data.user,
+          user: ownerData.user,
           isLoading: false,
           isAuthenticated: true,
           error: null,
         });
         return true;
-      } else {
-        console.log('❌ Login failed:', data);
-        localStorage.removeItem('auth-token');
-        setAuthState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: data.error || data.message || 'Credenciales inválidas',
-        }));
-        return false;
       }
+      
+      // If Owner login failed, try Staff login
+      console.log('🔐 Owner login failed, trying Staff login...');
+      const staffResponse = await fetch(`${config.apiUrl}/api/staff/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+
+      const staffData = await staffResponse.json();
+
+      if (staffResponse.ok && staffData.success && staffData.user) {
+        console.log('✅ Staff login successful:', staffData.user.email);
+        
+        if (staffData.token) {
+          localStorage.setItem('auth-token', staffData.token);
+          console.log('💾 Staff token saved to localStorage');
+        }
+        
+        // Save staff permissions to localStorage
+        if (staffData.permissions) {
+          localStorage.setItem('user-permissions', JSON.stringify(staffData.permissions));
+          console.log('💾 Staff permissions saved:', staffData.permissions.length);
+        }
+        
+        setAuthState({
+          user: staffData.user,
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        });
+        return true;
+      }
+
+      // Both failed
+      console.log('❌ Both Owner and Staff login failed');
+      localStorage.removeItem('auth-token');
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: staffData.error || staffData.message || 'Credenciales inválidas',
+      }));
+      return false;
+      
     } catch (error) {
       console.error('❌ Login network error:', error);
       localStorage.removeItem('auth-token');
@@ -204,9 +242,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear localStorage token and cookies
+      // Clear localStorage token, permissions and cookies
       localStorage.removeItem('auth-token');
-      console.log('🗑️ Cleared localStorage token');
+      localStorage.removeItem('user-permissions');
+      console.log('🗑️ Cleared localStorage token and permissions');
       
       setAuthState({
         user: null,

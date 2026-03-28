@@ -17,12 +17,14 @@ import { CreateBuildingModal } from '@/components/buildings'
 import { useBuildings } from '@/hooks/useBuildings'
 import { useApartments } from '@/hooks/useApartments'
 import { useContracts } from '@/hooks/useContracts'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ApartmentStatus } from '@/types'
 import styles from './properties.module.css'
 
 export default function BuildingsContent() {
   const router = useRouter()
   const { buildings, loading, refresh } = useBuildings()
+  const { hasPermission } = usePermissions()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const { apartments } = useApartments()
   const { contracts } = useContracts()
@@ -124,9 +126,11 @@ export default function BuildingsContent() {
           leftIcon={<Search size={18} />}
           className={styles.searchInput}
         />
-        <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
-          Nuevo Edificio
-        </Button>
+        {hasPermission('properties', 'create') && (
+          <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
+            Nuevo Edificio
+          </Button>
+        )}
       </div>
 
       {/* Buildings List */}
@@ -138,9 +142,11 @@ export default function BuildingsContent() {
               title="No hay edificios"
               description="Comienza creando tu primer edificio para gestionar sus unidades."
               action={
-                <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
-                  Crear Edificio
-                </Button>
+                hasPermission('properties', 'create') ? (
+                  <Button leftIcon={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
+                    Crear Edificio
+                  </Button>
+                ) : undefined
               }
             />
           </CardContent>

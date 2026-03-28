@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { notificationsService } from '../services/notifications.service'
 import { notificationGeneratorService } from '../services/notification-generator.service'
 import { verifyToken } from '../lib/auth/jwt'
+import { requirePermission } from '../middleware/permissions'
 
 const router = Router()
 

@@ -95,7 +95,7 @@ export const accountingService = {
           },
         },
       },
-      orderBy: { entryDate: 'desc' },
+      orderBy: [{ entryDate: 'desc' }, { createdAt: 'desc' }],
     })
   },
 

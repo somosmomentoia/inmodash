@@ -7,9 +7,11 @@ declare global {
   namespace Express {
     interface Request {
       user?: {
-        userId: number
+        userId: number        // ID de la agencia (User)
         email: string
         role: string
+        staffUserId?: number  // ID del StaffUser (null si es owner)
+        isStaff?: boolean     // true si es staff, false si es owner
       }
     }
   }
@@ -60,7 +62,9 @@ export const authenticate = async (
     req.user = {
       userId: payload.userId,
       email: payload.email,
-      role: payload.role
+      role: payload.role,
+      staffUserId: payload.staffUserId,
+      isStaff: payload.isStaff || false
     }
 
     // Check if token needs renewal and renew if necessary

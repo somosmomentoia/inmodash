@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DollarSign,
@@ -33,6 +33,7 @@ import {
   ModalFooter,
 } from '@/components/ui'
 import { useObligations } from '@/hooks/useObligations'
+import { usePermissions } from '@/hooks/usePermissions'
 import { recurringObligationsService } from '@/services/recurring-obligations.service'
 import RegisterPaymentModal from '@/components/obligations/RegisterPaymentModal'
 import { ObligationType, ObligationStatus, Obligation } from '@/types'
@@ -57,12 +58,13 @@ interface ObligationsContentProps {
 export default function ObligationsContent({ initialStatus, initialType, initialPaidBy }: ObligationsContentProps) {
   const router = useRouter()
   const { obligations, loading, fetchObligations } = useObligations()
+  const { hasPermission } = usePermissions()
   const [activeTab, setActiveTab] = useState<ObligationFilter>(
     (initialStatus as ObligationFilter) || 'all'
   )
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>(initialType || 'all')
-  const [paidByFilter, setPaidByFilter] = useState<string>(initialPaidBy || 'all')
+  // paidByFilter removed - Cuenta Corriente only shows tenant obligations
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc') // desc = más recientes primero
   
   // Period navigation state
@@ -123,9 +125,12 @@ export default function ObligationsContent({ initialStatus, initialType, initial
   const [showSelectObligationModal, setShowSelectObligationModal] = useState(false)
   const [selectedObligationForPayment, setSelectedObligationForPayment] = useState<Obligation | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+
+  // Cuenta Corriente = ledger del inquilino: solo obligaciones con chargeTo = 'tenant'
+  const tenantObligations = obligations.filter((o) => !o.chargeTo || o.chargeTo === 'tenant')
   
-  // Get unpaid obligations (pending, partial, overdue)
-  const unpaidObligations = obligations.filter(
+  // Get unpaid obligations (pending, partial, overdue) - only tenant obligations
+  const unpaidObligations = tenantObligations.filter(
     (o) => o.status === 'pending' || o.status === 'partial' || o.status === 'overdue'
   )
   
@@ -133,8 +138,7 @@ export default function ObligationsContent({ initialStatus, initialType, initial
   useEffect(() => {
     if (initialStatus) setActiveTab(initialStatus as ObligationFilter)
     if (initialType) setTypeFilter(initialType)
-    if (initialPaidBy) setPaidByFilter(initialPaidBy)
-  }, [initialStatus, initialType, initialPaidBy])
+  }, [initialStatus, initialType])
 
   const getTypeLabel = (type: ObligationType) => {
     const labels: Record<ObligationType, string> = {
@@ -145,6 +149,8 @@ export default function ObligationsContent({ initialStatus, initialType, initial
       insurance: 'Seguro',
       maintenance: 'Mantenimiento',
       debt: 'Deuda',
+      income_other: 'Otro Ingreso',
+      expense_other: 'Otro Egreso',
     }
     return labels[type] || type
   }
@@ -164,7 +170,7 @@ export default function ObligationsContent({ initialStatus, initialType, initial
     }
   }
 
-  const filteredObligations = obligations
+  const filteredObligations = tenantObligations
     .filter((obligation) => {
       // Period filter
       const periodRange = getPeriodRange()
@@ -177,7 +183,6 @@ export default function ObligationsContent({ initialStatus, initialType, initial
       
       if (activeTab !== 'all' && obligation.status !== activeTab) return false
       if (typeFilter !== 'all' && obligation.type !== typeFilter) return false
-      if (paidByFilter !== 'all' && obligation.paidBy !== paidByFilter) return false
       if (searchTerm) {
         const search = searchTerm.toLowerCase()
         return obligation.description.toLowerCase().includes(search)
@@ -190,18 +195,65 @@ export default function ObligationsContent({ initialStatus, initialType, initial
       return sortOrder === 'desc' ? dateB - dateA : dateA - dateB
     })
 
-  const pendingCount = obligations.filter((o) => o.status === 'pending').length
-  const partialCount = obligations.filter((o) => o.status === 'partial').length
-  const paidCount = obligations.filter((o) => o.status === 'paid').length
-  const overdueCount = obligations.filter((o) => o.status === 'overdue').length
+  const pendingCount = tenantObligations.filter((o) => o.status === 'pending').length
+  const partialCount = tenantObligations.filter((o) => o.status === 'partial').length
+  const paidCount = tenantObligations.filter((o) => o.status === 'paid').length
+  const overdueCount = tenantObligations.filter((o) => o.status === 'overdue').length
 
   const tabs = [
-    { id: 'all', label: 'Todas', badge: obligations.length },
+    { id: 'all', label: 'Todas', badge: tenantObligations.length },
     { id: 'pending', label: 'Pendientes', badge: pendingCount },
     { id: 'partial', label: 'Parciales', badge: partialCount },
     { id: 'overdue', label: 'Vencidas', badge: overdueCount },
     { id: 'paid', label: 'Pagadas', badge: paidCount },
   ]
+
+  const quickActions = useMemo(() => {
+    const actions = []
+    if (hasPermission('obligations', 'create')) {
+      actions.push({
+        id: 'new-obligation',
+        icon: <Plus />,
+        label: 'Nueva Obligación',
+        color: 'blue' as const,
+        onClick: () => router.push('/obligations/new'),
+      })
+    }
+    if (hasPermission('obligations', 'generate_recurring')) {
+      actions.push({
+        id: 'update-recurring',
+        icon: <RefreshCw />,
+        label: 'Generar Recurrentes',
+        color: 'purple' as const,
+        onClick: () => setShowGenerateModal(true),
+      })
+    }
+    if (hasPermission('obligations', 'register_payment')) {
+      actions.push({
+        id: 'register-payment',
+        icon: <CreditCard />,
+        label: 'Registrar Pago',
+        color: 'green' as const,
+        badge: unpaidObligations.length > 0 ? unpaidObligations.length : undefined,
+        onClick: () => {
+          if (unpaidObligations.length > 0) {
+            setShowSelectObligationModal(true)
+          }
+        },
+      })
+    }
+    if (hasPermission('reports', 'view')) {
+      actions.push({
+        id: 'analytics',
+        icon: <TrendingUp />,
+        label: 'Ver Analíticas',
+        color: 'orange' as const,
+        badge: overdueCount > 0 ? overdueCount : undefined,
+        onClick: () => router.push('/reports/analiticas'),
+      })
+    }
+    return actions
+  }, [hasPermission, unpaidObligations.length, overdueCount, router])
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('es-AR', {
@@ -235,42 +287,7 @@ export default function ObligationsContent({ initialStatus, initialType, initial
         title="Acciones Rápidas"
         columns={4}
         variant="compact"
-        items={[
-          {
-            id: 'new-obligation',
-            icon: <Plus />,
-            label: 'Nueva Obligación',
-            color: 'blue',
-            onClick: () => router.push('/obligations/new'),
-          },
-          {
-            id: 'update-recurring',
-            icon: <RefreshCw />,
-            label: 'Generar Recurrentes',
-            color: 'purple',
-            onClick: () => setShowGenerateModal(true),
-          },
-          {
-            id: 'register-payment',
-            icon: <CreditCard />,
-            label: 'Registrar Pago',
-            color: 'green',
-            badge: unpaidObligations.length > 0 ? unpaidObligations.length : undefined,
-            onClick: () => {
-              if (unpaidObligations.length > 0) {
-                setShowSelectObligationModal(true)
-              }
-            },
-          },
-          {
-            id: 'analytics',
-            icon: <TrendingUp />,
-            label: 'Ver Analíticas',
-            color: 'orange',
-            badge: overdueCount > 0 ? overdueCount : undefined,
-            onClick: () => router.push('/reports/analiticas'),
-          },
-        ]}
+        items={quickActions}
       />
 
       {/* Period Navigator + Status Pills */}
@@ -363,23 +380,8 @@ export default function ObligationsContent({ initialStatus, initialType, initial
                 <option value="rent">Alquiler</option>
                 <option value="expenses">Expensas</option>
                 <option value="service">Servicios</option>
-                <option value="tax">Impuestos</option>
                 <option value="insurance">Seguros</option>
-                <option value="maintenance">Mantenimiento</option>
                 <option value="debt">Deudas</option>
-              </select>
-            </div>
-            <div className={styles.filterGroup}>
-              <label className={styles.filterLabel}>Pagado por</label>
-              <select
-                value={paidByFilter}
-                onChange={(e) => setPaidByFilter(e.target.value)}
-                className={styles.filterSelect}
-              >
-                <option value="all">Todos</option>
-                <option value="tenant">Inquilino</option>
-                <option value="owner">Propietario</option>
-                <option value="agency">Inmobiliaria</option>
               </select>
             </div>
           </div>

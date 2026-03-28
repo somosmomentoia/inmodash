@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import * as documentsService from '../services/documents.service'
-import path from 'path'
+import { storageService } from '../services/storage.service'
 import config from '../config/env'
 
 export const getAll = async (req: Request, res: Response, next: NextFunction) => {
@@ -129,24 +129,35 @@ export const upload = async (req: Request, res: Response, next: NextFunction) =>
     // Get metadata from body
     const { type, description, contractId, tenantId, ownerId, apartmentId } = req.body
 
-    console.log('Upload request received:', {
-      fileName: file.originalname,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-      type,
-      contractId,
-    })
+    // Build context path for storage organization
+    let context = 'general'
+    if (contractId) {
+      context = `contracts/${contractId}`
+    } else if (tenantId) {
+      context = `tenants/${tenantId}`
+    } else if (ownerId) {
+      context = `owners/${ownerId}`
+    } else if (apartmentId) {
+      context = `apartments/${apartmentId}`
+    }
 
-    // Build the file URL (full URL including backend domain)
-    const fileUrl = `${config.backendUrl}/uploads/${file.filename}`
-    console.log('File URL generated:', fileUrl)
-    console.log('Backend URL from config:', config.backendUrl)
+    // Upload to R2 (or local fallback)
+    // file.buffer exists when using memoryUpload, file.path when using diskUpload
+    const buffer = file.buffer || (await import('fs')).readFileSync(file.path!)
+    const { url: fileUrl, key: storageKey } = await storageService.uploadFile(
+      buffer,
+      file.originalname,
+      file.mimetype,
+      userId,
+      context,
+    )
 
     // Create document record in database
     const document = await documentsService.create({
       type: type || 'otro',
       fileName: file.originalname,
       fileUrl,
+      storageKey,
       fileSize: file.size,
       mimeType: file.mimetype,
       description: description || undefined,
@@ -156,7 +167,6 @@ export const upload = async (req: Request, res: Response, next: NextFunction) =>
       apartmentId: apartmentId ? parseInt(apartmentId) : undefined,
     }, userId)
 
-    console.log('Document created:', document.id)
     res.status(201).json(document)
   } catch (error) {
     console.error('Error in upload controller:', error)

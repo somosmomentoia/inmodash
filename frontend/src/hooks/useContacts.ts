@@ -15,9 +15,15 @@ export function useContacts(category?: ContactCategory) {
       setError(null)
       const data = await contactsService.getAll(category)
       setContacts(data)
-    } catch (err) {
-      console.error('Error fetching contacts:', err)
-      setError('Error al cargar contactos')
+    } catch (err: any) {
+      // If 403 Forbidden, user doesn't have permission - fail silently
+      if (err.message?.includes('Forbidden') || err.status === 403) {
+        setContacts([])
+        setError(null)
+      } else {
+        console.error('Error fetching contacts:', err)
+        setError('Error al cargar contactos')
+      }
     } finally {
       setLoading(false)
     }

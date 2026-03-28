@@ -256,20 +256,6 @@ export default function OwnerDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader title="Balance" />
-          <CardContent>
-            <div className={styles.balanceCard}>
-              <DollarSign size={24} className={styles.balanceIcon} />
-              <div className={styles.balanceInfo}>
-                <span className={styles.balanceLabel}>Saldo Actual</span>
-                <span className={`${styles.balanceValue} ${owner.balance >= 0 ? styles.positive : styles.negative}`}>
-                  {formatCurrency(owner.balance || 0)}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Properties */}

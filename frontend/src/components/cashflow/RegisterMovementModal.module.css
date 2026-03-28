@@ -1,0 +1,179 @@
+/* Register Cash Flow Movement Modal Styles */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* Direction Selector (Ingreso / Egreso) */
+.directionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+}
+
+.directionCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-lg) var(--spacing-md);
+  background-color: var(--bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+}
+
+.directionCard:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-light);
+}
+
+.directionCardActive {
+  border-color: var(--accent-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--accent-primary);
+}
+
+.directionCardIncome.directionCardActive {
+  border-color: var(--success);
+  background-color: rgba(34, 197, 94, 0.1);
+  color: var(--success);
+}
+
+.directionCardExpense.directionCardActive {
+  border-color: var(--error);
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+}
+
+.directionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.directionDesc {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* Section Label */
+.sectionLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+/* Fields Grid */
+.fieldsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+}
+
+.fieldsGridFull {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Impute Checkbox */
+.imputeSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+}
+
+.imputeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.imputeCheckbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.imputeLabel {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.imputeHint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding-left: calc(18px + var(--spacing-sm));
+}
+
+.imputeSelect {
+  margin-top: var(--spacing-sm);
+}
+
+/* Impact Preview */
+.impactPreview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+}
+
+.impactRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+}
+
+.impactLabel {
+  color: var(--text-secondary);
+}
+
+.impactValuePositive {
+  color: var(--success);
+  font-weight: var(--font-weight-semibold);
+}
+
+.impactValueNegative {
+  color: var(--error);
+  font-weight: var(--font-weight-semibold);
+}
+
+.impactValueNeutral {
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Error Box */
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--error);
+}
+
+@media (max-width: 480px) {
+  .fieldsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .directionGrid {
+    grid-template-columns: 1fr;
+  }
+}

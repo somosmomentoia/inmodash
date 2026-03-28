@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   User,
   Plus,
@@ -31,7 +32,8 @@ import styles from './properties.module.css'
 
 export default function OwnersContent() {
   const router = useRouter()
-  const { owners, loading, error: apiError, createOwner, updateOwner, deleteOwner } = useOwners()
+  const { owners, loading, createOwner, updateOwner, deleteOwner } = useOwners()
+  const { hasPermission } = usePermissions()
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -180,9 +182,11 @@ export default function OwnersContent() {
           leftIcon={<Search size={18} />}
           className={styles.searchInput}
         />
-        <Button leftIcon={<Plus size={16} />} onClick={() => setShowCreateModal(true)}>
-          Nuevo Propietario
-        </Button>
+        {hasPermission('properties', 'create') && (
+          <Button leftIcon={<Plus size={16} />} onClick={() => setShowCreateModal(true)}>
+            Nuevo Propietario
+          </Button>
+        )}
       </div>
 
       {/* Owners List */}
@@ -194,9 +198,11 @@ export default function OwnersContent() {
               title="No hay propietarios"
               description="Comienza creando tu primer propietario para gestionar sus propiedades."
               action={
-                <Button leftIcon={<Plus size={16} />} onClick={() => setShowCreateModal(true)}>
-                  Crear Propietario
-                </Button>
+                hasPermission('properties', 'create') ? (
+                  <Button leftIcon={<Plus size={16} />} onClick={() => setShowCreateModal(true)}>
+                    Crear Propietario
+                  </Button>
+                ) : undefined
               }
             />
           </CardContent>
