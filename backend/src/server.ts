@@ -85,255 +85,155 @@ app.get('/health', (req, res) => {
   })
 })
 
-// Temporary diagnostic endpoint - check DB tables
+// Temporary diagnostic + sync endpoints
 import prisma from './config/database'
+
 app.get('/api/debug/db-check', async (req, res) => {
   try {
     const tables: any[] = await prisma.$queryRaw`
       SELECT table_name FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      ORDER BY table_name
+      WHERE table_schema = 'public' ORDER BY table_name
     `
     const tableNames = tables.map((t: any) => t.table_name)
     
-    const expectedNew = ['staff_users', 'user_permissions', 'vendors', 'vendor_commissions', 'rent_adjustments']
-    const missing = expectedNew.filter(t => !tableNames.includes(t))
+    // Get all columns per table
+    const columns: any[] = await prisma.$queryRaw`
+      SELECT table_name, column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+      ORDER BY table_name, ordinal_position
+    `
     
-    res.json({ 
-      totalTables: tableNames.length,
-      tables: tableNames,
-      missingNewTables: missing,
+    const tableColumns: Record<string, string[]> = {}
+    columns.forEach((c: any) => {
+      if (!tableColumns[c.table_name]) tableColumns[c.table_name] = []
+      tableColumns[c.table_name].push(c.column_name)
     })
+    
+    res.json({ totalTables: tableNames.length, tableColumns })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
 })
 
-// One-time setup endpoint to create missing tables in production
-app.post('/api/debug/setup-missing-tables', async (req, res) => {
+// Full DB schema sync - adds ALL missing columns and tables
+app.post('/api/debug/full-sync', async (req, res) => {
+  const results: string[] = []
+  const errors: string[] = []
+  
+  async function safeExec(sql: string, label: string) {
+    try {
+      await prisma.$executeRawUnsafe(sql)
+      results.push(label)
+    } catch (e: any) {
+      if (e.message.includes('already exists') || e.message.includes('duplicate')) {
+        results.push(label + ' (already exists)')
+      } else {
+        errors.push(label + ': ' + e.message)
+      }
+    }
+  }
+  
+  async function addCol(table: string, col: string, type: string, def?: string) {
+    const defaultClause = def ? ` DEFAULT ${def}` : ''
+    await safeExec(`
+      DO $$ BEGIN
+        ALTER TABLE "${table}" ADD COLUMN "${col}" ${type}${defaultClause};
+      EXCEPTION WHEN duplicate_column THEN NULL;
+      END $$;
+    `, `${table}.${col}`)
+  }
+  
   try {
-    const results: string[] = []
-
-    // 1. Create StaffRole enum if not exists
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        CREATE TYPE "StaffRole" AS ENUM ('ADMIN', 'MANAGER', 'ACCOUNTING', 'COLLECTIONS', 'LEASING', 'MAINTENANCE', 'READ_ONLY');
-      EXCEPTION WHEN duplicate_object THEN NULL;
-      END $$;
-    `)
-    results.push('StaffRole enum: OK')
-
-    // 2. Create vendors table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "vendors" (
-        "id" SERIAL NOT NULL,
-        "userId" INTEGER NOT NULL,
-        "name" VARCHAR(255) NOT NULL,
-        "email" VARCHAR(255),
-        "phone" VARCHAR(50),
-        "isActive" BOOLEAN NOT NULL DEFAULT true,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "vendors_pkey" PRIMARY KEY ("id")
-      )
-    `)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "vendors_userId_idx" ON "vendors"("userId")`)
-    results.push('vendors table: OK')
-
-    // 3. Create vendor_commissions table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "vendor_commissions" (
-        "id" SERIAL NOT NULL,
-        "userId" INTEGER NOT NULL,
-        "vendorId" INTEGER NOT NULL,
-        "contractId" INTEGER NOT NULL,
-        "amount" DOUBLE PRECISION NOT NULL,
-        "status" VARCHAR(20) NOT NULL DEFAULT 'pending',
-        "paidAt" TIMESTAMP(3),
-        "paymentMethod" VARCHAR(50),
-        "reference" VARCHAR(255),
-        "notes" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "vendor_commissions_pkey" PRIMARY KEY ("id")
-      )
-    `)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "vendor_commissions_userId_idx" ON "vendor_commissions"("userId")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "vendor_commissions_vendorId_idx" ON "vendor_commissions"("vendorId")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "vendor_commissions_contractId_idx" ON "vendor_commissions"("contractId")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "vendor_commissions_status_idx" ON "vendor_commissions"("status")`)
-    results.push('vendor_commissions table: OK')
-
-    // 4. Create staff_users table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "staff_users" (
-        "id" SERIAL NOT NULL,
-        "agencyId" INTEGER NOT NULL,
-        "email" VARCHAR(255) NOT NULL,
-        "passwordHash" VARCHAR(255) NOT NULL,
-        "name" VARCHAR(255) NOT NULL,
-        "role" "StaffRole" NOT NULL DEFAULT 'READ_ONLY',
-        "isActive" BOOLEAN NOT NULL DEFAULT true,
-        "lastLoginAt" TIMESTAMP(3),
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "staff_users_pkey" PRIMARY KEY ("id")
-      )
-    `)
-    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "staff_users_email_key" ON "staff_users"("email")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "staff_users_agencyId_idx" ON "staff_users"("agencyId")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "staff_users_email_idx" ON "staff_users"("email")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "staff_users_isActive_idx" ON "staff_users"("isActive")`)
-    results.push('staff_users table: OK')
-
-    // 5. Create user_permissions table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "user_permissions" (
-        "id" SERIAL NOT NULL,
-        "staffUserId" INTEGER NOT NULL,
-        "module" VARCHAR(50) NOT NULL,
-        "action" VARCHAR(50) NOT NULL,
-        "allowed" BOOLEAN NOT NULL DEFAULT true,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "user_permissions_pkey" PRIMARY KEY ("id")
-      )
-    `)
-    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "user_permissions_staffUserId_module_action_key" ON "user_permissions"("staffUserId", "module", "action")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "user_permissions_staffUserId_module_idx" ON "user_permissions"("staffUserId", "module")`)
-    results.push('user_permissions table: OK')
-
-    // 6. Create rent_adjustments table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "rent_adjustments" (
-        "id" SERIAL NOT NULL,
-        "userId" INTEGER NOT NULL,
-        "contractId" INTEGER NOT NULL,
-        "recurringObligationId" INTEGER NOT NULL,
-        "period" TIMESTAMP(3) NOT NULL,
-        "indexType" VARCHAR(20) NOT NULL,
-        "originalIndexValue" DOUBLE PRECISION NOT NULL,
-        "appliedIndexValue" DOUBLE PRECISION NOT NULL,
-        "baseIndexValue" DOUBLE PRECISION NOT NULL,
-        "isManuallyModified" BOOLEAN NOT NULL DEFAULT false,
-        "baseAmount" DOUBLE PRECISION NOT NULL,
-        "previousAmount" DOUBLE PRECISION NOT NULL,
-        "newAmount" DOUBLE PRECISION NOT NULL,
-        "coefficient" DOUBLE PRECISION NOT NULL,
-        "percentageIncrease" DOUBLE PRECISION NOT NULL,
-        "modifiedByUserId" INTEGER,
-        "modifiedAt" TIMESTAMP(3),
-        "notes" TEXT,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "rent_adjustments_pkey" PRIMARY KEY ("id")
-      )
-    `)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "rent_adjustments_userId_idx" ON "rent_adjustments"("userId")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "rent_adjustments_contractId_idx" ON "rent_adjustments"("contractId")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "rent_adjustments_recurringObligationId_idx" ON "rent_adjustments"("recurringObligationId")`)
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "rent_adjustments_period_idx" ON "rent_adjustments"("period")`)
-    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "rent_adjustments_recurringObligationId_period_key" ON "rent_adjustments"("recurringObligationId", "period")`)
-    results.push('rent_adjustments table: OK')
-
-    // 7. Add storageKey column to documents if missing
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "documents" ADD COLUMN "storageKey" VARCHAR(500);
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    results.push('documents.storageKey column: OK')
-
-    // 8. Add missing columns to contracts (vendorId, vendorCommissionPct, signupFeeAmount, contractExpenses)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "contracts" ADD COLUMN "vendorId" INTEGER;
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "contracts" ADD COLUMN "vendorCommissionPct" DOUBLE PRECISION;
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "contracts" ADD COLUMN "signupFeeAmount" DOUBLE PRECISION;
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "contracts" ADD COLUMN "contractExpenses" DOUBLE PRECISION;
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "contracts" ADD COLUMN "commissionType" VARCHAR(20);
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "contracts" ADD COLUMN "commissionValue" DOUBLE PRECISION;
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    results.push('contracts new columns: OK')
-
-    // 9. Add missing columns to settlements (state, deductions)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "settlements" ADD COLUMN "state" VARCHAR(20) DEFAULT 'draft';
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    await prisma.$executeRawUnsafe(`
-      DO $$ BEGIN
-        ALTER TABLE "settlements" ADD COLUMN "deductions" DOUBLE PRECISION DEFAULT 0;
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
-    `)
-    results.push('settlements new columns: OK')
-
-    // Add foreign keys (non-blocking, skip if they exist)
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "vendors" ADD CONSTRAINT "vendors_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "vendor_commissions" ADD CONSTRAINT "vendor_commissions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "vendor_commissions" ADD CONSTRAINT "vendor_commissions_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "vendor_commissions" ADD CONSTRAINT "vendor_commissions_contractId_fkey" FOREIGN KEY ("contractId") REFERENCES "contracts"("id") ON DELETE CASCADE ON UPDATE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "staff_users" ADD CONSTRAINT "staff_users_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "user_permissions" ADD CONSTRAINT "user_permissions_staffUserId_fkey" FOREIGN KEY ("staffUserId") REFERENCES "staff_users"("id") ON DELETE CASCADE ON UPDATE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "rent_adjustments" ADD CONSTRAINT "rent_adjustments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "rent_adjustments" ADD CONSTRAINT "rent_adjustments_contractId_fkey" FOREIGN KEY ("contractId") REFERENCES "contracts"("id") ON DELETE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "rent_adjustments" ADD CONSTRAINT "rent_adjustments_recurringObligationId_fkey" FOREIGN KEY ("recurringObligationId") REFERENCES "recurring_obligations"("id") ON DELETE CASCADE`)
-    } catch(e) {}
-    try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "contracts" ADD CONSTRAINT "contracts_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE SET NULL ON UPDATE CASCADE`)
-    } catch(e) {}
-    results.push('Foreign keys: OK')
-
-    res.json({ success: true, results })
+    // === ENUMS ===
+    await safeExec(`DO $$ BEGIN CREATE TYPE "StaffRole" AS ENUM ('ADMIN','MANAGER','ACCOUNTING','COLLECTIONS','LEASING','MAINTENANCE','READ_ONLY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`, 'enum StaffRole')
+    
+    // === MISSING TABLES ===
+    await safeExec(`CREATE TABLE IF NOT EXISTS "vendors" ("id" SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL, "name" VARCHAR(255) NOT NULL, "email" VARCHAR(255), "phone" VARCHAR(50), "isActive" BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`, 'table vendors')
+    await safeExec(`CREATE TABLE IF NOT EXISTS "vendor_commissions" ("id" SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL, "vendorId" INTEGER NOT NULL, "contractId" INTEGER NOT NULL, "amount" DOUBLE PRECISION NOT NULL, "status" VARCHAR(20) NOT NULL DEFAULT 'pending', "paidAt" TIMESTAMP(3), "paymentMethod" VARCHAR(50), "reference" VARCHAR(255), "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`, 'table vendor_commissions')
+    await safeExec(`CREATE TABLE IF NOT EXISTS "staff_users" ("id" SERIAL PRIMARY KEY, "agencyId" INTEGER NOT NULL, "email" VARCHAR(255) NOT NULL, "passwordHash" VARCHAR(255) NOT NULL, "name" VARCHAR(255) NOT NULL, "role" "StaffRole" NOT NULL DEFAULT 'READ_ONLY', "isActive" BOOLEAN NOT NULL DEFAULT true, "lastLoginAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`, 'table staff_users')
+    await safeExec(`CREATE TABLE IF NOT EXISTS "user_permissions" ("id" SERIAL PRIMARY KEY, "staffUserId" INTEGER NOT NULL, "module" VARCHAR(50) NOT NULL, "action" VARCHAR(50) NOT NULL, "allowed" BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`, 'table user_permissions')
+    await safeExec(`CREATE TABLE IF NOT EXISTS "rent_adjustments" ("id" SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL, "contractId" INTEGER NOT NULL, "recurringObligationId" INTEGER NOT NULL, "period" TIMESTAMP(3) NOT NULL, "indexType" VARCHAR(20) NOT NULL, "originalIndexValue" DOUBLE PRECISION NOT NULL, "appliedIndexValue" DOUBLE PRECISION NOT NULL, "baseIndexValue" DOUBLE PRECISION NOT NULL, "isManuallyModified" BOOLEAN NOT NULL DEFAULT false, "baseAmount" DOUBLE PRECISION NOT NULL, "previousAmount" DOUBLE PRECISION NOT NULL, "newAmount" DOUBLE PRECISION NOT NULL, "coefficient" DOUBLE PRECISION NOT NULL, "percentageIncrease" DOUBLE PRECISION NOT NULL, "modifiedByUserId" INTEGER, "modifiedAt" TIMESTAMP(3), "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`, 'table rent_adjustments')
+    
+    // === MISSING COLUMNS ON EXISTING TABLES ===
+    
+    // obligations - chargeTo, origin columns
+    await addCol('obligations', 'chargeTo', 'VARCHAR(20)', "'tenant'")
+    await addCol('obligations', 'origin', 'VARCHAR(30)')
+    await addCol('obligations', 'ownerImpact', 'DOUBLE PRECISION', '0')
+    await addCol('obligations', 'agencyImpact', 'DOUBLE PRECISION', '0')
+    
+    // contracts - vendor and fee columns
+    await addCol('contracts', 'vendorId', 'INTEGER')
+    await addCol('contracts', 'vendorCommissionPct', 'DOUBLE PRECISION')
+    await addCol('contracts', 'signupFeeAmount', 'DOUBLE PRECISION')
+    await addCol('contracts', 'contractExpenses', 'DOUBLE PRECISION')
+    await addCol('contracts', 'commissionType', 'VARCHAR(20)')
+    await addCol('contracts', 'commissionValue', 'DOUBLE PRECISION')
+    
+    // documents - storageKey
+    await addCol('documents', 'storageKey', 'VARCHAR(500)')
+    
+    // settlements - state, deductions
+    await addCol('settlements', 'state', 'VARCHAR(20)', "'draft'")
+    await addCol('settlements', 'deductions', 'DOUBLE PRECISION', '0')
+    
+    // obligation_payments - source, paymentGroupId  
+    await addCol('obligation_payments', 'source', 'VARCHAR(50)')
+    await addCol('obligation_payments', 'paymentGroupId', 'VARCHAR(100)')
+    
+    // recurring_obligations - update fields
+    await addCol('recurring_obligations', 'updateIndexType', 'VARCHAR(20)')
+    await addCol('recurring_obligations', 'updateFrequencyMonths', 'INTEGER')
+    await addCol('recurring_obligations', 'initialIndexValue', 'DOUBLE PRECISION')
+    await addCol('recurring_obligations', 'initialIndexDate', 'TIMESTAMP(3)')
+    await addCol('recurring_obligations', 'fixedUpdateCoefficient', 'DOUBLE PRECISION')
+    await addCol('recurring_obligations', 'currentAmount', 'DOUBLE PRECISION')
+    await addCol('recurring_obligations', 'lastUpdateApplied', 'TIMESTAMP(3)')
+    await addCol('recurring_obligations', 'periodsSinceUpdate', 'INTEGER', '0')
+    
+    // tasks - staff user fields
+    await addCol('tasks', 'createdByStaffId', 'INTEGER')
+    await addCol('tasks', 'assignedToStaffId', 'INTEGER')
+    
+    // === INDEXES ===
+    const indexes = [
+      `CREATE INDEX IF NOT EXISTS "vendors_userId_idx" ON "vendors"("userId")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "staff_users_email_key" ON "staff_users"("email")`,
+      `CREATE INDEX IF NOT EXISTS "staff_users_agencyId_idx" ON "staff_users"("agencyId")`,
+      `CREATE INDEX IF NOT EXISTS "staff_users_isActive_idx" ON "staff_users"("isActive")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "user_permissions_staffUserId_module_action_key" ON "user_permissions"("staffUserId","module","action")`,
+      `CREATE INDEX IF NOT EXISTS "user_permissions_staffUserId_module_idx" ON "user_permissions"("staffUserId","module")`,
+      `CREATE INDEX IF NOT EXISTS "vendor_commissions_userId_idx" ON "vendor_commissions"("userId")`,
+      `CREATE INDEX IF NOT EXISTS "vendor_commissions_vendorId_idx" ON "vendor_commissions"("vendorId")`,
+      `CREATE INDEX IF NOT EXISTS "vendor_commissions_contractId_idx" ON "vendor_commissions"("contractId")`,
+      `CREATE INDEX IF NOT EXISTS "vendor_commissions_status_idx" ON "vendor_commissions"("status")`,
+      `CREATE INDEX IF NOT EXISTS "rent_adjustments_userId_idx" ON "rent_adjustments"("userId")`,
+      `CREATE INDEX IF NOT EXISTS "rent_adjustments_contractId_idx" ON "rent_adjustments"("contractId")`,
+      `CREATE INDEX IF NOT EXISTS "rent_adjustments_recurringObligationId_idx" ON "rent_adjustments"("recurringObligationId")`,
+      `CREATE INDEX IF NOT EXISTS "rent_adjustments_period_idx" ON "rent_adjustments"("period")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "rent_adjustments_recurringObligationId_period_key" ON "rent_adjustments"("recurringObligationId","period")`,
+    ]
+    for (const idx of indexes) { await safeExec(idx, 'index') }
+    
+    // === FOREIGN KEYS ===
+    const fks = [
+      `ALTER TABLE "vendors" ADD CONSTRAINT "vendors_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "vendor_commissions" ADD CONSTRAINT "vendor_commissions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "vendor_commissions" ADD CONSTRAINT "vendor_commissions_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "vendor_commissions" ADD CONSTRAINT "vendor_commissions_contractId_fkey" FOREIGN KEY ("contractId") REFERENCES "contracts"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "staff_users" ADD CONSTRAINT "staff_users_agencyId_fkey" FOREIGN KEY ("agencyId") REFERENCES "users"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "user_permissions" ADD CONSTRAINT "user_permissions_staffUserId_fkey" FOREIGN KEY ("staffUserId") REFERENCES "staff_users"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "rent_adjustments" ADD CONSTRAINT "rent_adjustments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "rent_adjustments" ADD CONSTRAINT "rent_adjustments_contractId_fkey" FOREIGN KEY ("contractId") REFERENCES "contracts"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "rent_adjustments" ADD CONSTRAINT "rent_adjustments_recurringObligationId_fkey" FOREIGN KEY ("recurringObligationId") REFERENCES "recurring_obligations"("id") ON DELETE CASCADE`,
+      `ALTER TABLE "contracts" ADD CONSTRAINT "contracts_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "vendors"("id") ON DELETE SET NULL`,
+    ]
+    for (const fk of fks) { await safeExec(fk, 'fk') }
+    
+    res.json({ success: true, results, errors })
   } catch (error: any) {
-    res.status(500).json({ error: error.message, step: 'setup', stack: error.stack })
+    res.status(500).json({ error: error.message, results, errors })
   }
 })
 
