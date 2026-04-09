@@ -108,9 +108,12 @@ export const documentsService = {
    * Upload file and create document
    */
   async upload(data: UploadDocumentDto): Promise<Document> {
+    if (!data || !data.file) {
+      throw new Error('No se proporcionó archivo para subir')
+    }
     const formData = new FormData()
     formData.append('file', data.file)
-    formData.append('type', data.type)
+    formData.append('type', data.type || 'otro')
     if (data.description) formData.append('description', data.description)
     if (data.contractId) formData.append('contractId', data.contractId.toString())
     if (data.tenantId) formData.append('tenantId', data.tenantId.toString())

@@ -31,10 +31,10 @@ router.get('/', requirePermission('documents', 'view'), documentsController.getA
 router.get('/:id', requirePermission('documents', 'view'), documentsController.getById)
 
 // POST /api/documents - Upload document
-router.post('/', requirePermission('documents', 'upload'), memoryUpload.single('file'), handleMulterError, documentsController.upload)
+router.post('/', requirePermission('documents', 'create'), memoryUpload.single('file'), handleMulterError, documentsController.upload)
 
 // PUT /api/documents/:id - Update document metadata
-router.put('/:id', requirePermission('documents', 'upload'), documentsController.update)
+router.put('/:id', requirePermission('documents', 'edit'), documentsController.update)
 
 // DELETE /api/documents/:id - Delete document
 router.delete('/:id', requirePermission('documents', 'delete'), documentsController.remove)
