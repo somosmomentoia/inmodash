@@ -324,6 +324,9 @@ export interface Vendor {
   email?: string
   phone?: string
   isActive: boolean
+  defaultCommissionType?: string // "percentage" | "fixed"
+  defaultCommissionPct?: number
+  defaultCommissionFixed?: number
   createdAt: Date
   updatedAt: Date
   _count?: { contracts: number; commissions: number }

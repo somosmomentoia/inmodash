@@ -4,6 +4,9 @@ export interface CreateVendorDto {
   name: string
   email?: string
   phone?: string
+  defaultCommissionType?: string
+  defaultCommissionPct?: number
+  defaultCommissionFixed?: number
 }
 
 export interface UpdateVendorDto {
@@ -11,6 +14,9 @@ export interface UpdateVendorDto {
   email?: string
   phone?: string
   isActive?: boolean
+  defaultCommissionType?: string
+  defaultCommissionPct?: number
+  defaultCommissionFixed?: number
 }
 
 export const getAll = async (userId: number) => {
@@ -60,6 +66,9 @@ export const create = async (data: CreateVendorDto, userId: number) => {
       name: data.name,
       email: data.email,
       phone: data.phone,
+      defaultCommissionType: data.defaultCommissionType,
+      defaultCommissionPct: data.defaultCommissionPct,
+      defaultCommissionFixed: data.defaultCommissionFixed,
     }
   })
 }
@@ -77,6 +86,9 @@ export const update = async (id: number, data: UpdateVendorDto, userId: number) 
       email: data.email,
       phone: data.phone,
       isActive: data.isActive,
+      defaultCommissionType: data.defaultCommissionType,
+      defaultCommissionPct: data.defaultCommissionPct,
+      defaultCommissionFixed: data.defaultCommissionFixed,
     }
   })
 }

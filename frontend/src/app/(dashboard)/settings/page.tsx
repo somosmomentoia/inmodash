@@ -5,27 +5,26 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Settings,
   Bell,
-  MessageSquare,
   Save,
   LayoutDashboard,
   Percent,
-  GripVertical,
-  Eye,
-  EyeOff,
   Building2,
-  DollarSign,
   Users,
   FileText,
-  TrendingUp,
   Calendar,
   AlertCircle,
-  PiggyBank,
   Plus,
   Pencil,
   Trash2,
   UserCheck,
   UserX,
   UserCog,
+  Check,
+  X,
+  CreditCard,
+  Home,
+  Activity,
+  BarChart3,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout'
 import {
@@ -43,6 +42,7 @@ import { usePreferences, NotificationPreferences } from '@/hooks/usePreferences'
 import { useVendors } from '@/hooks/useVendors'
 import { Vendor } from '@/types'
 import { UsersContent } from './users-content'
+import config from '@/config/env'
 import styles from './settings.module.css'
 
 const defaultNotificationPrefs: NotificationPreferences = {
@@ -53,33 +53,57 @@ const defaultNotificationPrefs: NotificationPreferences = {
   weeklySummary: false,
 }
 
-interface DashboardWidget {
+// Dashboard widget definitions (must match dashboard page DEFAULT_WIDGETS)
+interface WidgetConfig {
   id: string
-  name: string
-  description: string
-  icon: React.ReactNode
+  title: string
+  icon: string
   enabled: boolean
-  order: number
 }
 
-const defaultWidgets: DashboardWidget[] = [
-  { id: 'properties', name: 'Propiedades', description: 'Total de propiedades y ocupación', icon: <Building2 size={18} />, enabled: true, order: 1 },
-  { id: 'income', name: 'Ingresos del Mes', description: 'Resumen de ingresos mensuales', icon: <DollarSign size={18} />, enabled: true, order: 2 },
-  { id: 'pending', name: 'Pagos Pendientes', description: 'Obligaciones por cobrar', icon: <AlertCircle size={18} />, enabled: true, order: 3 },
-  { id: 'contracts', name: 'Contratos Activos', description: 'Contratos vigentes', icon: <FileText size={18} />, enabled: true, order: 4 },
-  { id: 'clients', name: 'Clientes', description: 'Total de inquilinos y propietarios', icon: <Users size={18} />, enabled: true, order: 5 },
-  { id: 'expiring', name: 'Próximos Vencimientos', description: 'Contratos por vencer', icon: <Calendar size={18} />, enabled: true, order: 6 },
-  { id: 'commissions', name: 'Comisiones', description: 'Comisiones del período', icon: <PiggyBank size={18} />, enabled: false, order: 7 },
-  { id: 'trends', name: 'Tendencias', description: 'Gráfico de evolución', icon: <TrendingUp size={18} />, enabled: false, order: 8 },
+const ALL_WIDGETS: WidgetConfig[] = [
+  { id: 'quick-actions', title: 'Acciones Rápidas', icon: 'zap', enabled: true },
+  { id: 'tasks', title: 'Tareas', icon: 'file-text', enabled: true },
+  { id: 'overdue', title: 'Obligaciones Vencidas', icon: 'alert-triangle', enabled: true },
+  { id: 'pending-rent', title: 'Alquileres Pendientes', icon: 'home', enabled: true },
+  { id: 'recent-payments', title: 'Últimos Pagos', icon: 'credit-card', enabled: true },
+  { id: 'cashflow', title: 'Flujo de Caja', icon: 'bar-chart', enabled: true },
+  { id: 'agency-expenses', title: 'Gastos Inmobiliaria', icon: 'building', enabled: true },
+  { id: 'commissions', title: 'Comisiones', icon: 'percent', enabled: true },
+  { id: 'activity', title: 'Actividad Reciente', icon: 'activity', enabled: true },
+  { id: 'calendar', title: 'Calendario', icon: 'calendar', enabled: true },
 ]
 
-type TabType = 'general' | 'dashboard' | 'commissions' | 'vendors' | 'notifications' | 'whatsapp' | 'users'
+// Company settings interface
+interface CompanySettings {
+  companyName: string
+  companyTaxId: string
+  companyAddress: string
+  companyCity: string
+  companyState: string
+  companyCountry: string
+  companyZipCode: string
+  companyPhone: string
+  companyWebsite: string
+  name: string
+  email: string
+  phone: string
+  position: string
+}
+
+const emptyCompany: CompanySettings = {
+  companyName: '', companyTaxId: '', companyAddress: '', companyCity: '',
+  companyState: '', companyCountry: '', companyZipCode: '', companyPhone: '',
+  companyWebsite: '', name: '', email: '', phone: '', position: '',
+}
+
+type TabType = 'general' | 'dashboard' | 'commissions' | 'vendors' | 'notifications' | 'users'
 
 function SettingsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const tabParam = searchParams.get('tab') as TabType | null
-  const validTabs = ['general', 'dashboard', 'commissions', 'vendors', 'notifications', 'whatsapp', 'users']
+  const validTabs = ['general', 'dashboard', 'commissions', 'vendors', 'notifications', 'users']
   const [activeTab, setActiveTab] = useState<TabType>(tabParam && validTabs.includes(tabParam) ? tabParam : 'general')
 
   useEffect(() => {
@@ -96,27 +120,113 @@ function SettingsPageContent() {
       router.replace(`/settings?tab=${tab}`, { scroll: false })
     }
   }, [router])
-  const [saving, setSaving] = useState(false)
-  const [widgets, setWidgets] = useState<DashboardWidget[]>(defaultWidgets)
-  const [defaultCommission, setDefaultCommission] = useState('10')
-  const [lateInterestRate, setLateInterestRate] = useState('2')
-  const [gracePeriodDays, setGracePeriodDays] = useState('5')
+
+  // Company settings
+  const [company, setCompany] = useState<CompanySettings>(emptyCompany)
+  const [companySaving, setCompanySaving] = useState(false)
+  const [companyLoading, setCompanyLoading] = useState(true)
+  const [companySaved, setCompanySaved] = useState(false)
+
+  // Fetch company settings
+  useEffect(() => {
+    const fetchCompany = async () => {
+      try {
+        const headers: Record<string, string> = {}
+        const token = typeof window !== 'undefined' ? localStorage.getItem('auth-token') : null
+        if (token) headers['Authorization'] = `Bearer ${token}`
+        const res = await fetch(`${config.apiUrl}/api/auth/company`, { credentials: 'include', headers })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.company) {
+            setCompany({
+              companyName: data.company.companyName || '',
+              companyTaxId: data.company.companyTaxId || '',
+              companyAddress: data.company.companyAddress || '',
+              companyCity: data.company.companyCity || '',
+              companyState: data.company.companyState || '',
+              companyCountry: data.company.companyCountry || '',
+              companyZipCode: data.company.companyZipCode || '',
+              companyPhone: data.company.companyPhone || '',
+              companyWebsite: data.company.companyWebsite || '',
+              name: data.company.name || '',
+              email: data.company.email || '',
+              phone: data.company.phone || '',
+              position: data.company.position || '',
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching company:', err)
+      } finally {
+        setCompanyLoading(false)
+      }
+    }
+    fetchCompany()
+  }, [])
+
+  const handleSaveCompany = async () => {
+    setCompanySaving(true)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth-token') : null
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch(`${config.apiUrl}/api/auth/company`, {
+        method: 'PUT', headers, credentials: 'include',
+        body: JSON.stringify(company),
+      })
+      if (res.ok) {
+        setCompanySaved(true)
+        setTimeout(() => setCompanySaved(false), 3000)
+      } else {
+        alert('Error al guardar configuración')
+      }
+    } catch (err) {
+      alert('Error de conexión')
+    } finally {
+      setCompanySaving(false)
+    }
+  }
+
+  // Dashboard widgets
+  const { preferences, updatePreferences, loading: prefsLoading } = usePreferences()
+  const [widgets, setWidgets] = useState<WidgetConfig[]>(ALL_WIDGETS)
+
+  useEffect(() => {
+    if (!prefsLoading && preferences.dashboardWidgets && Array.isArray(preferences.dashboardWidgets)) {
+      const savedWidgetIds = preferences.dashboardWidgets as string[]
+      setWidgets(prev => prev.map(w => ({ ...w, enabled: savedWidgetIds.includes(w.id) })))
+    }
+  }, [preferences, prefsLoading])
+
+  const handleToggleWidget = useCallback(async (widgetId: string) => {
+    setWidgets(prev => {
+      const updated = prev.map(w => w.id === widgetId ? { ...w, enabled: !w.enabled } : w)
+      const enabledIds = updated.filter(w => w.enabled).map(w => w.id)
+      updatePreferences({ dashboardWidgets: enabledIds })
+      return updated
+    })
+  }, [updatePreferences])
+
+  // Notification preferences
+  const notifPrefs = preferences.notifications || defaultNotificationPrefs
+
+  const handleNotificationChange = async (key: keyof NotificationPreferences, value: boolean) => {
+    const currentNotifs = preferences.notifications || defaultNotificationPrefs
+    await updatePreferences({ notifications: { ...currentNotifs, [key]: value } })
+  }
 
   // Vendors
   const { vendors, loading: vendorsLoading, createVendor, updateVendor, deleteVendor } = useVendors()
   const [showVendorModal, setShowVendorModal] = useState(false)
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null)
-  const [vendorForm, setVendorForm] = useState({ name: '', email: '', phone: '' })
+  const [vendorForm, setVendorForm] = useState({
+    name: '', email: '', phone: '',
+    defaultCommissionType: '' as '' | 'percentage' | 'fixed',
+    defaultCommissionPct: '',
+    defaultCommissionFixed: '',
+  })
   const [vendorSaving, setVendorSaving] = useState(false)
   const [vendorDeleting, setVendorDeleting] = useState<number | null>(null)
-  
-  // Notification preferences
-  const { preferences, setNotificationPreferences, loading: prefsLoading } = usePreferences()
-  const notifPrefs = preferences.notifications || defaultNotificationPrefs
-
-  const handleNotificationChange = async (key: keyof NotificationPreferences, value: boolean) => {
-    await setNotificationPreferences({ [key]: value })
-  }
 
   const tabs = [
     { id: 'general', label: 'General', icon: <Settings size={16} /> },
@@ -125,46 +235,40 @@ function SettingsPageContent() {
     { id: 'vendors', label: 'Vendedores', icon: <Users size={16} /> },
     { id: 'users', label: 'Usuarios', icon: <UserCog size={16} /> },
     { id: 'notifications', label: 'Notificaciones', icon: <Bell size={16} /> },
-    { id: 'whatsapp', label: 'WhatsApp', icon: <MessageSquare size={16} /> },
   ]
 
-  const toggleWidget = (widgetId: string) => {
-    setWidgets(widgets.map(w => 
-      w.id === widgetId ? { ...w, enabled: !w.enabled } : w
-    ))
-  }
-
-  const moveWidget = (widgetId: string, direction: 'up' | 'down') => {
-    const index = widgets.findIndex(w => w.id === widgetId)
-    if (index === -1) return
-    if (direction === 'up' && index === 0) return
-    if (direction === 'down' && index === widgets.length - 1) return
-
-    const newWidgets = [...widgets]
-    const swapIndex = direction === 'up' ? index - 1 : index + 1
-    const temp = newWidgets[index].order
-    newWidgets[index].order = newWidgets[swapIndex].order
-    newWidgets[swapIndex].order = temp
-    ;[newWidgets[index], newWidgets[swapIndex]] = [newWidgets[swapIndex], newWidgets[index]]
-    setWidgets(newWidgets)
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    // TODO: Save settings
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setSaving(false)
+  const getWidgetIcon = (iconName: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      'zap': <CreditCard size={18} />,
+      'file-text': <FileText size={18} />,
+      'alert-triangle': <AlertCircle size={18} />,
+      'home': <Home size={18} />,
+      'building': <Building2 size={18} />,
+      'percent': <Percent size={18} />,
+      'activity': <Activity size={18} />,
+      'calendar': <Calendar size={18} />,
+      'credit-card': <CreditCard size={18} />,
+      'bar-chart': <BarChart3 size={18} />,
+    }
+    return icons[iconName] || <FileText size={18} />
   }
 
   const openNewVendor = () => {
     setEditingVendor(null)
-    setVendorForm({ name: '', email: '', phone: '' })
+    setVendorForm({ name: '', email: '', phone: '', defaultCommissionType: '', defaultCommissionPct: '', defaultCommissionFixed: '' })
     setShowVendorModal(true)
   }
 
   const openEditVendor = (vendor: Vendor) => {
     setEditingVendor(vendor)
-    setVendorForm({ name: vendor.name, email: vendor.email || '', phone: vendor.phone || '' })
+    setVendorForm({
+      name: vendor.name,
+      email: vendor.email || '',
+      phone: vendor.phone || '',
+      defaultCommissionType: (vendor.defaultCommissionType as '' | 'percentage' | 'fixed') || '',
+      defaultCommissionPct: vendor.defaultCommissionPct?.toString() || '',
+      defaultCommissionFixed: vendor.defaultCommissionFixed?.toString() || '',
+    })
     setShowVendorModal(true)
   }
 
@@ -172,17 +276,26 @@ function SettingsPageContent() {
     if (!vendorForm.name.trim()) return
     setVendorSaving(true)
     try {
+      const commissionData = {
+        defaultCommissionType: vendorForm.defaultCommissionType || undefined,
+        defaultCommissionPct: vendorForm.defaultCommissionType === 'percentage' && vendorForm.defaultCommissionPct
+          ? parseFloat(vendorForm.defaultCommissionPct) : undefined,
+        defaultCommissionFixed: vendorForm.defaultCommissionType === 'fixed' && vendorForm.defaultCommissionFixed
+          ? parseFloat(vendorForm.defaultCommissionFixed) : undefined,
+      }
       if (editingVendor) {
         await updateVendor(editingVendor.id, {
           name: vendorForm.name,
           email: vendorForm.email || undefined,
           phone: vendorForm.phone || undefined,
+          ...commissionData,
         })
       } else {
         await createVendor({
           name: vendorForm.name,
           email: vendorForm.email || undefined,
           phone: vendorForm.phone || undefined,
+          ...commissionData,
         })
       }
       setShowVendorModal(false)
@@ -219,219 +332,209 @@ function SettingsPageContent() {
       <Tabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} variant="underline" />
 
       <div className={styles.content}>
+        {/* ===== GENERAL TAB ===== */}
         {activeTab === 'general' && (
           <>
             <Card>
               <CardHeader title="Información de la Empresa" />
               <CardContent>
-                <div className={styles.formGrid}>
-                  <Input
-                    label="Nombre de la Empresa"
-                    placeholder="Mi Inmobiliaria"
-                    fullWidth
-                  />
-                  <Input
-                    label="CUIT"
-                    placeholder="30-12345678-9"
-                    fullWidth
-                  />
-                  <Input
-                    label="Teléfono"
-                    placeholder="+54 11 1234-5678"
-                    fullWidth
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    placeholder="contacto@miinmobiliaria.com"
-                    fullWidth
-                  />
-                </div>
-                <Input
-                  label="Dirección"
-                  placeholder="Av. Corrientes 1234, CABA"
-                  fullWidth
-                />
+                {companyLoading ? (
+                  <p style={{ color: 'var(--text-tertiary)' }}>Cargando datos...</p>
+                ) : (
+                  <>
+                    <div className={styles.formGrid}>
+                      <Input label="Nombre de la Empresa" placeholder="Mi Inmobiliaria" fullWidth
+                        value={company.companyName}
+                        onChange={(e) => setCompany({ ...company, companyName: e.target.value })} />
+                      <Input label="CUIT / Tax ID" placeholder="30-12345678-9" fullWidth
+                        value={company.companyTaxId}
+                        onChange={(e) => setCompany({ ...company, companyTaxId: e.target.value })} />
+                      <Input label="Teléfono de la Empresa" placeholder="+54 11 1234-5678" fullWidth
+                        value={company.companyPhone}
+                        onChange={(e) => setCompany({ ...company, companyPhone: e.target.value })} />
+                      <Input label="Sitio Web" placeholder="https://miinmobiliaria.com" fullWidth
+                        value={company.companyWebsite}
+                        onChange={(e) => setCompany({ ...company, companyWebsite: e.target.value })} />
+                    </div>
+                    <div className={styles.formGrid} style={{ marginTop: 'var(--spacing-lg)' }}>
+                      <Input label="Dirección" placeholder="Av. Corrientes 1234" fullWidth
+                        value={company.companyAddress}
+                        onChange={(e) => setCompany({ ...company, companyAddress: e.target.value })} />
+                      <Input label="Ciudad" placeholder="CABA" fullWidth
+                        value={company.companyCity}
+                        onChange={(e) => setCompany({ ...company, companyCity: e.target.value })} />
+                      <Input label="Provincia / Estado" placeholder="Buenos Aires" fullWidth
+                        value={company.companyState}
+                        onChange={(e) => setCompany({ ...company, companyState: e.target.value })} />
+                      <Input label="País" placeholder="Argentina" fullWidth
+                        value={company.companyCountry}
+                        onChange={(e) => setCompany({ ...company, companyCountry: e.target.value })} />
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader title="Preferencias" />
+              <CardHeader title="Datos del Representante" />
               <CardContent>
                 <div className={styles.formGrid}>
-                  <Select
-                    label="Moneda"
-                    options={[
-                      { value: 'ARS', label: 'Peso Argentino (ARS)' },
-                      { value: 'USD', label: 'Dólar (USD)' },
-                    ]}
-                    fullWidth
-                  />
-                  <Select
-                    label="Formato de Fecha"
-                    options={[
-                      { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
-                      { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
-                      { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
-                    ]}
-                    fullWidth
-                  />
+                  <Input label="Nombre Completo" placeholder="Juan Pérez" fullWidth
+                    value={company.name}
+                    onChange={(e) => setCompany({ ...company, name: e.target.value })} />
+                  <Input label="Email" type="email" fullWidth disabled
+                    value={company.email} />
+                  <Input label="Teléfono Personal" placeholder="+54 11 9999-8888" fullWidth
+                    value={company.phone}
+                    onChange={(e) => setCompany({ ...company, phone: e.target.value })} />
+                  <Input label="Cargo" placeholder="Director" fullWidth
+                    value={company.position}
+                    onChange={(e) => setCompany({ ...company, position: e.target.value })} />
                 </div>
               </CardContent>
             </Card>
+
+            <div className={styles.actions}>
+              <Button onClick={handleSaveCompany} loading={companySaving} leftIcon={companySaved ? <Check size={16} /> : <Save size={16} />}>
+                {companySaved ? 'Guardado ✓' : 'Guardar Cambios'}
+              </Button>
+            </div>
           </>
         )}
 
+        {/* ===== DASHBOARD TAB ===== */}
         {activeTab === 'dashboard' && (
           <Card>
             <CardHeader
               title="Widgets del Dashboard"
-              subtitle="Personaliza qué información ver en tu panel principal"
+              subtitle="Selecciona qué widgets mostrar en tu panel principal. Los cambios se aplican de inmediato."
             />
             <CardContent>
               <div className={styles.widgetList}>
-                {widgets.map((widget, index) => (
+                {widgets.map((widget) => (
                   <div key={widget.id} className={`${styles.widgetItem} ${!widget.enabled ? styles.widgetDisabled : ''}`}>
-                    <div className={styles.widgetDrag}>
-                      <GripVertical size={16} />
-                    </div>
-                    <div className={styles.widgetIcon}>{widget.icon}</div>
+                    <div className={styles.widgetIcon}>{getWidgetIcon(widget.icon)}</div>
                     <div className={styles.widgetInfo}>
-                      <span className={styles.widgetName}>{widget.name}</span>
-                      <span className={styles.widgetDesc}>{widget.description}</span>
+                      <span className={styles.widgetName}>{widget.title}</span>
                     </div>
                     <div className={styles.widgetActions}>
                       <button
-                        className={styles.widgetOrderBtn}
-                        onClick={() => moveWidget(widget.id, 'up')}
-                        disabled={index === 0}
-                        title="Mover arriba"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        className={styles.widgetOrderBtn}
-                        onClick={() => moveWidget(widget.id, 'down')}
-                        disabled={index === widgets.length - 1}
-                        title="Mover abajo"
-                      >
-                        ↓
-                      </button>
-                      <button
                         className={`${styles.widgetToggle} ${widget.enabled ? styles.widgetToggleActive : ''}`}
-                        onClick={() => toggleWidget(widget.id)}
+                        onClick={() => handleToggleWidget(widget.id)}
                         title={widget.enabled ? 'Ocultar widget' : 'Mostrar widget'}
                       >
-                        {widget.enabled ? <Eye size={16} /> : <EyeOff size={16} />}
+                        {widget.enabled ? <Check size={16} /> : <X size={16} />}
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
               <p className={styles.widgetHint}>
-                Arrastra los widgets para reordenarlos o usa las flechas. Los widgets desactivados no aparecerán en el dashboard.
+                Los widgets desactivados no aparecerán en el dashboard. Los cambios se guardan automáticamente.
               </p>
             </CardContent>
           </Card>
         )}
 
+        {/* ===== COMMISSIONS TAB ===== */}
         {activeTab === 'commissions' && (
           <>
             <Card>
               <CardHeader
-                title="Comisiones por Defecto"
-                subtitle="Configura los valores predeterminados para nuevos contratos"
-              />
-              <CardContent>
-                <div className={styles.formGrid}>
-                  <div className={styles.inputWithSuffix}>
-                    <Input
-                      label="Comisión por Alquiler"
-                      value={defaultCommission}
-                      onChange={(e) => setDefaultCommission(e.target.value)}
-                      type="number"
-                      min="0"
-                      max="100"
-                      fullWidth
-                    />
-                    <span className={styles.inputSuffix}>%</span>
-                  </div>
-                  <div className={styles.inputWithSuffix}>
-                    <Input
-                      label="Interés por Mora"
-                      value={lateInterestRate}
-                      onChange={(e) => setLateInterestRate(e.target.value)}
-                      type="number"
-                      min="0"
-                      max="100"
-                      fullWidth
-                    />
-                    <span className={styles.inputSuffix}>% mensual</span>
-                  </div>
-                </div>
-                <div className={styles.inputWithSuffix}>
-                  <Input
-                    label="Días de Gracia"
-                    value={gracePeriodDays}
-                    onChange={(e) => setGracePeriodDays(e.target.value)}
-                    type="number"
-                    min="0"
-                    max="30"
-                    fullWidth
-                  />
-                  <span className={styles.inputSuffix}>días</span>
-                </div>
-                <p className={styles.formHint}>
-                  Estos valores se aplicarán automáticamente a nuevos contratos. Podés modificarlos individualmente en cada contrato.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="Tipos de Comisión"
-                subtitle="Define cómo se calculan las comisiones según el tipo de operación"
+                title="Sistema de Comisiones"
+                subtitle="Resumen del modelo de comisiones activo en Inmodash"
               />
               <CardContent>
                 <div className={styles.commissionTypes}>
                   <div className={styles.commissionType}>
                     <div className={styles.commissionTypeHeader}>
-                      <span className={styles.commissionTypeName}>Alquiler Mensual</span>
+                      <span className={styles.commissionTypeName}>Comisión de la Inmobiliaria</span>
                       <Badge variant="success">Activo</Badge>
                     </div>
                     <p className={styles.commissionTypeDesc}>
-                      Se cobra el {defaultCommission}% del monto del alquiler cada mes
+                      Se configura al crear cada contrato (porcentaje o monto fijo sobre el alquiler). Se aplica automáticamente a cada obligación de alquiler generada.
                     </p>
                   </div>
                   <div className={styles.commissionType}>
                     <div className={styles.commissionTypeHeader}>
-                      <span className={styles.commissionTypeName}>Comisión por Contrato Nuevo</span>
-                      <Badge variant="default">Opcional</Badge>
+                      <span className={styles.commissionTypeName}>Comisión de Alta (Signup Fee)</span>
+                      <Badge variant="success">Activo</Badge>
                     </div>
                     <p className={styles.commissionTypeDesc}>
-                      Comisión única al firmar un nuevo contrato (configurable por contrato)
+                      Monto fijo que paga el inquilino al firmar. Se genera como obligación pendiente al crear el contrato.
                     </p>
                   </div>
                   <div className={styles.commissionType}>
                     <div className={styles.commissionTypeHeader}>
-                      <span className={styles.commissionTypeName}>Comisión por Renovación</span>
-                      <Badge variant="default">Opcional</Badge>
+                      <span className={styles.commissionTypeName}>Gastos de Contrato</span>
+                      <Badge variant="success">Activo</Badge>
                     </div>
                     <p className={styles.commissionTypeDesc}>
-                      Comisión al renovar un contrato existente
+                      Sellados, escribanía, etc. Se genera como obligación pendiente al crear el contrato.
+                    </p>
+                  </div>
+                  <div className={styles.commissionType}>
+                    <div className={styles.commissionTypeHeader}>
+                      <span className={styles.commissionTypeName}>Comisión del Vendedor</span>
+                      <Badge variant="success">Activo</Badge>
+                    </div>
+                    <p className={styles.commissionTypeDesc}>
+                      Porcentaje sobre la comisión de alta o monto fijo. Se precarga desde la configuración del vendedor y se puede ajustar por contrato. Se genera como VendorCommission pendiente.
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader
+                title="Actualización por Índice"
+                subtitle="Configuración disponible al crear contratos"
+              />
+              <CardContent>
+                <div className={styles.commissionTypes}>
+                  <div className={styles.commissionType}>
+                    <div className={styles.commissionTypeHeader}>
+                      <span className={styles.commissionTypeName}>ICL (Índice para Contratos de Locación)</span>
+                      <Badge variant="success">Disponible</Badge>
+                    </div>
+                    <p className={styles.commissionTypeDesc}>
+                      Actualización automática basada en el ICL del BCRA. Se obtiene el valor actual al crear el contrato y se recalcula en cada período.
+                    </p>
+                  </div>
+                  <div className={styles.commissionType}>
+                    <div className={styles.commissionTypeHeader}>
+                      <span className={styles.commissionTypeName}>IPC (Índice de Precios al Consumidor)</span>
+                      <Badge variant="success">Disponible</Badge>
+                    </div>
+                    <p className={styles.commissionTypeDesc}>
+                      Actualización automática basada en el IPC del INDEC. Similar al ICL pero con diferente fuente de datos.
+                    </p>
+                  </div>
+                  <div className={styles.commissionType}>
+                    <div className={styles.commissionTypeHeader}>
+                      <span className={styles.commissionTypeName}>Coeficiente Fijo</span>
+                      <Badge variant="success">Disponible</Badge>
+                    </div>
+                    <p className={styles.commissionTypeDesc}>
+                      Aumento porcentual fijo cada N meses (ej: 5% cada 4 meses). No depende de índices externos.
+                    </p>
+                  </div>
+                </div>
+                <p className={styles.formHint}>
+                  La configuración de actualización e índices se realiza individualmente al crear cada contrato. La línea de tiempo de ajustes se puede ver y modificar desde el detalle del contrato, pestaña &quot;Índice&quot;.
+                </p>
+              </CardContent>
+            </Card>
           </>
         )}
 
+        {/* ===== VENDORS TAB ===== */}
         {activeTab === 'vendors' && (
           <Card>
             <CardHeader
               title="Vendedores"
-              subtitle="Gestiona los vendedores de tu inmobiliaria"
+              subtitle="Gestiona los vendedores de tu inmobiliaria y su comisión por defecto"
             />
             <CardContent>
               <div className={styles.vendorActions}>
@@ -456,6 +559,12 @@ function SettingsPageContent() {
                         <div className={styles.vendorName}>
                           {vendor.name}
                           {!vendor.isActive && <Badge variant="default" size="sm">Inactivo</Badge>}
+                          {vendor.defaultCommissionType === 'percentage' && vendor.defaultCommissionPct && (
+                            <Badge variant="success" size="sm">{vendor.defaultCommissionPct}%</Badge>
+                          )}
+                          {vendor.defaultCommissionType === 'fixed' && vendor.defaultCommissionFixed && (
+                            <Badge variant="success" size="sm">${vendor.defaultCommissionFixed.toLocaleString('es-AR')}</Badge>
+                          )}
                         </div>
                         <div className={styles.vendorMeta}>
                           {vendor.email && <span>{vendor.email}</span>}
@@ -530,6 +639,44 @@ function SettingsPageContent() {
                   placeholder="+54 11 1234-5678"
                   fullWidth
                 />
+                <Select
+                  label="Tipo de Comisión por Defecto"
+                  options={[
+                    { value: '', label: 'Sin comisión por defecto' },
+                    { value: 'percentage', label: 'Porcentaje sobre comisión de alta' },
+                    { value: 'fixed', label: 'Monto fijo' },
+                  ]}
+                  value={vendorForm.defaultCommissionType}
+                  onChange={(e) => setVendorForm({ ...vendorForm, defaultCommissionType: e.target.value as '' | 'percentage' | 'fixed' })}
+                  fullWidth
+                />
+                {vendorForm.defaultCommissionType === 'percentage' && (
+                  <Input
+                    label="Porcentaje de Comisión (%)"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={vendorForm.defaultCommissionPct}
+                    onChange={(e) => setVendorForm({ ...vendorForm, defaultCommissionPct: e.target.value })}
+                    placeholder="10"
+                    hint="Ej: 10 = el vendedor se lleva el 10% de la comisión de alta"
+                    fullWidth
+                  />
+                )}
+                {vendorForm.defaultCommissionType === 'fixed' && (
+                  <Input
+                    label="Monto Fijo de Comisión (ARS)"
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={vendorForm.defaultCommissionFixed}
+                    onChange={(e) => setVendorForm({ ...vendorForm, defaultCommissionFixed: e.target.value })}
+                    placeholder="50000"
+                    hint="Monto fijo que cobra el vendedor por cada contrato cerrado"
+                    fullWidth
+                  />
+                )}
               </div>
               <div className={styles.modalFooter}>
                 <Button variant="secondary" onClick={() => setShowVendorModal(false)}>
@@ -547,6 +694,7 @@ function SettingsPageContent() {
           </div>
         )}
 
+        {/* ===== NOTIFICATIONS TAB ===== */}
         {activeTab === 'notifications' && (
           <Card>
             <CardHeader
@@ -596,19 +744,6 @@ function SettingsPageContent() {
                 </div>
                 <div className={styles.notificationItem}>
                   <div>
-                    <span className={styles.notificationTitle}>Mensajes de WhatsApp</span>
-                    <span className={styles.notificationDesc}>
-                      Alertas de nuevos mensajes de WhatsApp
-                    </span>
-                  </div>
-                  <Checkbox 
-                    checked={notifPrefs.whatsappMessage}
-                    onChange={(e) => handleNotificationChange('whatsappMessage', e.target.checked)}
-                    disabled={prefsLoading}
-                  />
-                </div>
-                <div className={styles.notificationItem}>
-                  <div>
                     <span className={styles.notificationTitle}>Resumen semanal</span>
                     <span className={styles.notificationDesc}>
                       Recibir un resumen semanal por email (próximamente)
@@ -625,51 +760,8 @@ function SettingsPageContent() {
           </Card>
         )}
 
-        {activeTab === 'whatsapp' && (
-          <Card>
-            <CardHeader
-              title="Configuración de WhatsApp"
-              subtitle="Conecta tu cuenta de WhatsApp Business"
-            />
-            <CardContent>
-              <div className={styles.whatsappStatus}>
-                <div className={styles.statusIndicator}>
-                  <div className={styles.statusDot} />
-                  <span>Desconectado</span>
-                </div>
-                <Button>Conectar WhatsApp</Button>
-              </div>
-
-              <div className={styles.formSection}>
-                <h4 className={styles.sectionTitle}>Respuestas Automáticas</h4>
-                <div className={styles.formGrid}>
-                  <Input
-                    label="Mensaje de Bienvenida"
-                    placeholder="¡Hola! Gracias por contactarnos..."
-                    fullWidth
-                  />
-                  <Input
-                    label="Mensaje Fuera de Horario"
-                    placeholder="Estamos fuera de horario..."
-                    fullWidth
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
+        {/* ===== USERS TAB ===== */}
         {activeTab === 'users' && <UsersContent />}
-
-        <div className={styles.actions}>
-          <Button
-            onClick={handleSave}
-            loading={saving}
-            leftIcon={<Save size={16} />}
-          >
-            Guardar Cambios
-          </Button>
-        </div>
       </div>
     </div>
   )

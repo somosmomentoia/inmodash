@@ -672,15 +672,7 @@ export default function NewContractPage() {
                     leftIcon={<DollarSign size={18} />} placeholder="150000" fullWidth />
                   <Input label="Coeficiente Mensual" type="number" step="0.01" value={contractData.monthlyCoefficient}
                     onChange={(e) => setContractData({ ...contractData, monthlyCoefficient: e.target.value })} fullWidth />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader title="Comisión de la Inmobiliaria" subtitle="Define la comisión sobre cada alquiler" />
-              <CardContent>
-                <div className={styles.formGrid}>
-                  <Select label="Tipo de Comisión"
+                  <Select label="Comisión Inmobiliaria"
                     options={[
                       { value: '', label: 'Sin comisión' },
                       { value: 'percentage', label: 'Porcentaje del alquiler' },
@@ -706,9 +698,6 @@ export default function NewContractPage() {
                     Comisión estimada: ${(parseFloat(contractData.initialAmount) * (parseFloat(contractData.commissionValue) / 100)).toLocaleString('es-AR')} por mes
                   </p>
                 )}
-                <div className={styles.infoBox}>
-                  <p>💡 <strong>Importante:</strong> Esta comisión se aplicará automáticamente a cada obligación de alquiler generada.</p>
-                </div>
               </CardContent>
             </Card>
 
@@ -786,11 +775,23 @@ export default function NewContractPage() {
                       { value: '', label: 'Sin vendedor asignado' },
                       ...vendors.filter(v => v.isActive).map(v => ({
                         value: v.id.toString(),
-                        label: v.name,
+                        label: v.name + (v.defaultCommissionType === 'percentage' && v.defaultCommissionPct ? ` (${v.defaultCommissionPct}%)` : v.defaultCommissionType === 'fixed' && v.defaultCommissionFixed ? ` ($${v.defaultCommissionFixed.toLocaleString('es-AR')})` : ''),
                       })),
                     ]}
                     value={contractData.vendorId}
-                    onChange={(e) => setContractData({ ...contractData, vendorId: e.target.value })}
+                    onChange={(e) => {
+                      const vid = e.target.value
+                      const vendor = vendors.find(v => v.id.toString() === vid)
+                      let vendorCommission = ''
+                      if (vendor) {
+                        if (vendor.defaultCommissionType === 'fixed' && vendor.defaultCommissionFixed) {
+                          vendorCommission = vendor.defaultCommissionFixed.toString()
+                        } else if (vendor.defaultCommissionType === 'percentage' && vendor.defaultCommissionPct && contractData.signupFeeAmount) {
+                          vendorCommission = (parseFloat(contractData.signupFeeAmount) * (vendor.defaultCommissionPct / 100)).toFixed(0)
+                        }
+                      }
+                      setContractData({ ...contractData, vendorId: vid, vendorCommissionAmount: vendorCommission })
+                    }}
                     fullWidth />
                   {contractData.vendorId && (
                     <Input
@@ -802,7 +803,14 @@ export default function NewContractPage() {
                       onChange={(e) => setContractData({ ...contractData, vendorCommissionAmount: e.target.value })}
                       leftIcon={<DollarSign size={18} />}
                       placeholder="0"
-                      hint="Monto que se le paga al vendedor por este contrato"
+                      hint={(() => {
+                        const v = vendors.find(v => v.id.toString() === contractData.vendorId)
+                        if (v?.defaultCommissionType === 'percentage' && v.defaultCommissionPct)
+                          return `Precargado: ${v.defaultCommissionPct}% sobre comisión de alta. Podés ajustarlo.`
+                        if (v?.defaultCommissionType === 'fixed' && v.defaultCommissionFixed)
+                          return `Precargado: $${v.defaultCommissionFixed.toLocaleString('es-AR')} fijo. Podés ajustarlo.`
+                        return 'Monto que se le paga al vendedor por este contrato'
+                      })()}
                       fullWidth />
                   )}
                   <Input
@@ -811,7 +819,17 @@ export default function NewContractPage() {
                     step="1"
                     min="0"
                     value={contractData.signupFeeAmount}
-                    onChange={(e) => setContractData({ ...contractData, signupFeeAmount: e.target.value })}
+                    onChange={(e) => {
+                      const newSignup = e.target.value
+                      const updates: Record<string, string> = { signupFeeAmount: newSignup }
+                      if (contractData.vendorId) {
+                        const vendor = vendors.find(v => v.id.toString() === contractData.vendorId)
+                        if (vendor?.defaultCommissionType === 'percentage' && vendor.defaultCommissionPct && newSignup) {
+                          updates.vendorCommissionAmount = (parseFloat(newSignup) * (vendor.defaultCommissionPct / 100)).toFixed(0)
+                        }
+                      }
+                      setContractData({ ...contractData, ...updates })
+                    }}
                     leftIcon={<DollarSign size={18} />}
                     placeholder="0"
                     hint="Monto fijo que paga el inquilino al firmar"

@@ -370,11 +370,13 @@ router.post('/refresh', async (req, res) => {
       })
     }
 
-    // Create new access token
+    // Create new access token (preserve staff fields if present)
     const newAccessToken = createToken({
       userId: payload.userId,
       email: payload.email,
-      role: payload.role
+      role: payload.role,
+      staffUserId: payload.staffUserId,
+      isStaff: payload.isStaff,
     })
 
     // Set new access token in cookie
@@ -403,7 +405,10 @@ router.post('/refresh', async (req, res) => {
  */
 router.get('/preferences', async (req, res) => {
   try {
-    const authToken = req.cookies['auth-token']
+    const authHeader = req.headers.authorization
+    const authToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : req.cookies?.['auth-token']
     if (!authToken) {
       return res.status(401).json({ error: 'Not authenticated' })
     }
@@ -434,7 +439,10 @@ router.get('/preferences', async (req, res) => {
  */
 router.put('/preferences', async (req, res) => {
   try {
-    const authToken = req.cookies['auth-token']
+    const authHeader = req.headers.authorization
+    const authToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : req.cookies?.['auth-token']
     if (!authToken) {
       return res.status(401).json({ error: 'Not authenticated' })
     }
@@ -472,6 +480,111 @@ router.put('/preferences', async (req, res) => {
   } catch (error) {
     console.error('Error updating preferences:', error)
     res.status(500).json({ error: 'Failed to update preferences' })
+  }
+})
+
+/**
+ * GET /api/auth/company
+ * Get company/agency settings
+ */
+router.get('/company', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    const authToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : req.cookies?.['auth-token']
+    if (!authToken) {
+      return res.status(401).json({ error: 'Not authenticated' })
+    }
+
+    const payload = await verifyToken(authToken)
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        companyName: true,
+        companyTaxId: true,
+        companyAddress: true,
+        companyCity: true,
+        companyState: true,
+        companyCountry: true,
+        companyZipCode: true,
+        companyPhone: true,
+        companyWebsite: true,
+        name: true,
+        email: true,
+        phone: true,
+        position: true,
+      }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    res.json({ success: true, company: user })
+  } catch (error) {
+    console.error('Error getting company settings:', error)
+    res.status(500).json({ error: 'Failed to get company settings' })
+  }
+})
+
+/**
+ * PUT /api/auth/company
+ * Update company/agency settings
+ */
+router.put('/company', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    const authToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : req.cookies?.['auth-token']
+    if (!authToken) {
+      return res.status(401).json({ error: 'Not authenticated' })
+    }
+
+    const payload = await verifyToken(authToken)
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid token' })
+    }
+
+    const {
+      companyName, companyTaxId, companyAddress, companyCity, companyState,
+      companyCountry, companyZipCode, companyPhone, companyWebsite,
+      name, phone, position
+    } = req.body
+
+    const updated = await prisma.user.update({
+      where: { id: payload.userId },
+      data: {
+        companyName, companyTaxId, companyAddress, companyCity, companyState,
+        companyCountry, companyZipCode, companyPhone, companyWebsite,
+        name, phone, position
+      },
+      select: {
+        companyName: true,
+        companyTaxId: true,
+        companyAddress: true,
+        companyCity: true,
+        companyState: true,
+        companyCountry: true,
+        companyZipCode: true,
+        companyPhone: true,
+        companyWebsite: true,
+        name: true,
+        email: true,
+        phone: true,
+        position: true,
+      }
+    })
+
+    res.json({ success: true, company: updated })
+  } catch (error) {
+    console.error('Error updating company settings:', error)
+    res.status(500).json({ error: 'Failed to update company settings' })
   }
 })
 

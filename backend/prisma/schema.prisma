@@ -769,6 +769,10 @@ model Vendor {
   email     String?  @db.VarChar(255)
   phone     String?  @db.VarChar(50)
   isActive  Boolean  @default(true)
+  // Comisión por defecto del vendedor
+  defaultCommissionType  String?  @db.VarChar(20) // "percentage" o "fixed"
+  defaultCommissionPct   Float?   // Porcentaje de comisión por defecto (ej: 10 = 10%)
+  defaultCommissionFixed Float?   // Monto fijo de comisión por defecto
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   

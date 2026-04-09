@@ -28,8 +28,14 @@ export function usePreferences() {
   const fetchPreferences = useCallback(async () => {
     try {
       setLoading(true)
+      const headers: Record<string, string> = {}
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('auth-token')
+        if (token) headers['Authorization'] = `Bearer ${token}`
+      }
       const response = await fetch(`${API_URL}/api/auth/preferences`, {
         credentials: 'include',
+        headers,
       })
       
       if (response.ok) {
@@ -52,9 +58,14 @@ export function usePreferences() {
   const updatePreferences = useCallback(async (newPrefs: Partial<UserPreferences>) => {
     try {
       console.log('[usePreferences] Saving preferences:', newPrefs)
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('auth-token')
+        if (token) headers['Authorization'] = `Bearer ${token}`
+      }
       const response = await fetch(`${API_URL}/api/auth/preferences`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ preferences: newPrefs }),
       })
