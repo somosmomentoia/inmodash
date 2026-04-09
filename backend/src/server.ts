@@ -85,6 +85,40 @@ app.get('/health', (req, res) => {
   })
 })
 
+// Temporary diagnostic endpoint - check DB tables
+import prisma from './config/database'
+app.get('/api/debug/db-check', async (req, res) => {
+  try {
+    const tables: any[] = await prisma.$queryRaw`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name
+    `
+    const tableNames = tables.map((t: any) => t.table_name)
+    
+    const expectedNew = ['staff_users', 'user_permissions', 'vendors', 'vendor_commissions', 'rent_adjustments']
+    const missing = expectedNew.filter(t => !tableNames.includes(t))
+    
+    // Check _prisma_migrations table
+    let migrations: any[] = []
+    try {
+      migrations = await prisma.$queryRaw`SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 10`
+    } catch (e: any) {
+      migrations = [{ error: e.message }]
+    }
+    
+    res.json({ 
+      totalTables: tableNames.length,
+      tables: tableNames,
+      missingNewTables: missing,
+      recentMigrations: migrations,
+      databaseUrl: process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.substring(0, 30) + '...)' : 'NOT SET'
+    })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, stack: error.stack })
+  }
+})
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
