@@ -5,7 +5,7 @@ import { AlertCircle, User, Building2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { Modal, ModalFooter, Button, Input, Select } from '@/components/ui'
 import { useObligationPayments } from '@/hooks/useObligationPayments'
-import { Obligation, PaymentMethod, PaidBy } from '@/types'
+import { Obligation, PaymentMethod, PaidBy, Owner } from '@/types'
 import styles from './RegisterPaymentModal.module.css'
 
 interface RegisterPaymentModalProps {

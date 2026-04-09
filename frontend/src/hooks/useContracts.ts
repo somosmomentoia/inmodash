@@ -14,12 +14,19 @@ export interface Contract {
   startDate: string
   endDate: string
   initialAmount: number
+  commissionType?: string
+  commissionValue?: number
+  vendorId?: number
+  vendorCommissionPct?: number
+  signupFeeAmount?: number
+  contractExpenses?: number
   createdAt: string
   updatedAt: string
   apartment?: any
   tenant?: any
   updateRule?: any
   guarantors?: any[]
+  vendor?: any
 }
 
 export interface CreateContractDto {

@@ -7,7 +7,7 @@ interface PermissionButtonProps {
   action: string
   children: ReactNode
   onClick?: () => void
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg'
   className?: string
   disabled?: boolean
