@@ -124,7 +124,7 @@ export default function UserDetailPage() {
     return (
       <div className={styles.container}>
         <div className={styles.error}>{error || 'Usuario no encontrado'}</div>
-        <button onClick={() => router.push('/settings/users')} className={styles.backButton}>
+        <button onClick={() => router.push('/settings?tab=users')} className={styles.backButton}>
           ← Volver a Usuarios
         </button>
       </div>
@@ -134,7 +134,7 @@ export default function UserDetailPage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <button onClick={() => router.push('/settings/users')} className={styles.backButton}>
+        <button onClick={() => router.push('/settings?tab=users')} className={styles.backButton}>
           ← Volver
         </button>
         <div className={styles.userInfo}>

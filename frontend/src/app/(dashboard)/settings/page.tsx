@@ -20,7 +20,6 @@ import {
   UserX,
   UserCog,
   Check,
-  X,
   CreditCard,
   Home,
   Activity,
@@ -410,26 +409,25 @@ function SettingsPageContent() {
               subtitle="Selecciona qué widgets mostrar en tu panel principal. Los cambios se aplican de inmediato."
             />
             <CardContent>
-              <div className={styles.widgetList}>
+              <div className={styles.notificationList}>
                 {widgets.map((widget) => (
-                  <div key={widget.id} className={`${styles.widgetItem} ${!widget.enabled ? styles.widgetDisabled : ''}`}>
-                    <div className={styles.widgetIcon}>{getWidgetIcon(widget.icon)}</div>
-                    <div className={styles.widgetInfo}>
-                      <span className={styles.widgetName}>{widget.title}</span>
+                  <div key={widget.id} className={styles.notificationItem}>
+                    <div>
+                      <span className={styles.notificationTitle}>
+                        {getWidgetIcon(widget.icon)} {widget.title}
+                      </span>
+                      <span className={styles.notificationDesc}>
+                        {widget.enabled ? 'Visible en el dashboard' : 'Oculto del dashboard'}
+                      </span>
                     </div>
-                    <div className={styles.widgetActions}>
-                      <button
-                        className={`${styles.widgetToggle} ${widget.enabled ? styles.widgetToggleActive : ''}`}
-                        onClick={() => handleToggleWidget(widget.id)}
-                        title={widget.enabled ? 'Ocultar widget' : 'Mostrar widget'}
-                      >
-                        {widget.enabled ? <Check size={16} /> : <X size={16} />}
-                      </button>
-                    </div>
+                    <Checkbox
+                      checked={widget.enabled}
+                      onChange={() => handleToggleWidget(widget.id)}
+                    />
                   </div>
                 ))}
               </div>
-              <p className={styles.widgetHint}>
+              <p className={styles.formHint}>
                 Los widgets desactivados no aparecerán en el dashboard. Los cambios se guardan automáticamente.
               </p>
             </CardContent>

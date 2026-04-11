@@ -60,17 +60,18 @@ export const getById = async (id: number, userId: number) => {
 }
 
 export const create = async (data: CreateVendorDto, userId: number) => {
-  return await prisma.vendor.create({
-    data: {
-      userId,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      defaultCommissionType: data.defaultCommissionType,
-      defaultCommissionPct: data.defaultCommissionPct,
-      defaultCommissionFixed: data.defaultCommissionFixed,
-    }
-  })
+  const createData: Record<string, unknown> = {
+    userId,
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+  }
+  if (data.defaultCommissionType) {
+    createData.defaultCommissionType = data.defaultCommissionType
+    createData.defaultCommissionPct = data.defaultCommissionPct
+    createData.defaultCommissionFixed = data.defaultCommissionFixed
+  }
+  return await prisma.vendor.create({ data: createData as any })
 }
 
 export const update = async (id: number, data: UpdateVendorDto, userId: number) => {
@@ -79,18 +80,18 @@ export const update = async (id: number, data: UpdateVendorDto, userId: number) 
     throw new Error('Vendor not found or access denied')
   }
 
-  return await prisma.vendor.update({
-    where: { id },
-    data: {
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      isActive: data.isActive,
-      defaultCommissionType: data.defaultCommissionType,
-      defaultCommissionPct: data.defaultCommissionPct,
-      defaultCommissionFixed: data.defaultCommissionFixed,
-    }
-  })
+  const updateData: Record<string, unknown> = {
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    isActive: data.isActive,
+  }
+  if (data.defaultCommissionType !== undefined) {
+    updateData.defaultCommissionType = data.defaultCommissionType || null
+    updateData.defaultCommissionPct = data.defaultCommissionPct ?? null
+    updateData.defaultCommissionFixed = data.defaultCommissionFixed ?? null
+  }
+  return await prisma.vendor.update({ where: { id }, data: updateData as any })
 }
 
 export const remove = async (id: number, userId: number) => {

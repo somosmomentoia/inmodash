@@ -133,7 +133,7 @@ export default function UsersPage() {
                     <div className={styles.actions}>
                       <button
                         className={styles.actionButton}
-                        onClick={() => router.push(`/settings/users/${user.id}`)}
+                        onClick={() => router.push(`/settings/users/${user.id}?from=settings`)}
                         title="Gestionar Permisos"
                       >
                         🔑
