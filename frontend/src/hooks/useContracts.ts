@@ -89,7 +89,7 @@ export function useContracts() {
     }
   }, [])
 
-  const updateContract = useCallback(async (id: number, data: Partial<CreateContractDto>) => {
+  const updateContract = useCallback(async (id: number, data: Record<string, unknown>) => {
     setLoading(true)
     setError(null)
     try {

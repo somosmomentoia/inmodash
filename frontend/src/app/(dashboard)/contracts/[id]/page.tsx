@@ -267,7 +267,7 @@ export default function ContractDetailPage() {
             { id: 'ledger', label: 'Cuenta Corriente', icon: Receipt },
             { id: 'guarantors', label: 'Garantes', icon: Shield },
             { id: 'documents', label: 'Documentos', icon: FolderOpen },
-            { id: 'index', label: 'Índice', icon: TrendingUp },
+            { id: 'update', label: 'Actualización', icon: TrendingUp },
             { id: 'history', label: 'Historial', icon: Clock },
           ].map((tab) => {
             const Icon = tab.icon
@@ -415,38 +415,6 @@ export default function ContractDetailPage() {
                 </div>
               </div>
 
-              {/* Update Rule */}
-              {contract.updateRule && (
-                <div className={styles.glassCard} style={{ marginBottom: 'var(--spacing-xl)' }}>
-                  <div className={styles.cardHeader}>
-                    <div className={`${styles.cardIcon} ${styles.cardIconBlue}`}>
-                      <TrendingUp size={20} />
-                    </div>
-                    <div>
-                      <div className={styles.cardTitle}>Regla de Actualización</div>
-                      <div className={styles.cardSubtitle}>Configuración para actualización de montos</div>
-                    </div>
-                  </div>
-                  <div className={styles.updateRuleGrid}>
-                    <div className={styles.infoRow}>
-                      <div className={styles.infoLabel}>Frecuencia</div>
-                      <div className={styles.infoValue}>{contract.updateRule.updateFrequency}</div>
-                    </div>
-                    {contract.updateRule.monthlyCoefficient && (
-                      <div className={styles.infoRow}>
-                        <div className={styles.infoLabel}>Coeficiente Mensual</div>
-                        <div className={styles.infoValue}>{contract.updateRule.monthlyCoefficient}</div>
-                      </div>
-                    )}
-                    {contract.updateRule.lateInterestPercent && (
-                      <div className={styles.infoRow}>
-                        <div className={styles.infoLabel}>Interés por Mora</div>
-                        <div className={styles.infoValue}>{contract.updateRule.lateInterestPercent}%</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Vendedor y Comisiones Contractuales */}
               {(contract.vendorId || contract.signupFeeAmount || contract.contractExpenses) && (
@@ -832,7 +800,7 @@ export default function ContractDetailPage() {
             </div>
           )}
 
-          {activeTab === 'index' && (
+          {activeTab === 'update' && (
             <RentAdjustmentsPanel contractId={contractId} />
           )}
 

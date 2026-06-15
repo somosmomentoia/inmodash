@@ -161,6 +161,17 @@ export interface UpdateContractDto {
   startDate?: string
   endDate?: string
   initialAmount?: number
+  // Entidades asociadas
+  tenantId?: number
+  apartmentId?: number
+  // Comisión de la inmobiliaria
+  commissionType?: 'percentage' | 'fixed' | null
+  commissionValue?: number | null
+  // Vendedor y comisiones contractuales
+  vendorId?: number | null
+  vendorCommissionPct?: number | null
+  signupFeeAmount?: number | null
+  contractExpenses?: number | null
 }
 
 // Owner DTOs

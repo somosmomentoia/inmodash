@@ -54,6 +54,14 @@ export interface UpdateContractDto {
   startDate?: string
   endDate?: string
   initialAmount?: number
+  tenantId?: number
+  apartmentId?: number
+  commissionType?: 'percentage' | 'fixed' | null
+  commissionValue?: number | null
+  vendorId?: number | null
+  vendorCommissionPct?: number | null
+  signupFeeAmount?: number | null
+  contractExpenses?: number | null
 }
 
 export const contractsService = {
@@ -95,7 +103,7 @@ export const contractsService = {
   /**
    * Update contract
    */
-  async update(id: number, data: UpdateContractDto): Promise<Contract> {
+  async update(id: number, data: Partial<UpdateContractDto> | Record<string, unknown>): Promise<Contract> {
     return apiClient.put<Contract>(`/api/contracts/${id}`, data)
   },
 

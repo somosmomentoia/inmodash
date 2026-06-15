@@ -142,8 +142,8 @@ export default function RentAdjustmentsPanel({ contractId }: RentAdjustmentsPane
     return (
       <div className={styles.emptyState}>
         <TrendingUp size={48} className={styles.emptyIcon} />
-        <h3>Sin Índice de Actualización</h3>
-        <p>Este contrato no tiene configurado un índice de actualización de precios (ICL, IPC o coeficiente fijo).</p>
+        <h3>Sin Actualización Configurada</h3>
+        <p>Este contrato no tiene configurada una regla de actualización de precios (ICL, IPC o coeficiente fijo).</p>
       </div>
     )
   }

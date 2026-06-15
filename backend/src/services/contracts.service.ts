@@ -308,17 +308,35 @@ export const update = async (id: number, data: UpdateContractDto, userId: number
   if (!contract) {
     throw new Error('Contract not found or access denied')
   }
+
+  const updateData: Record<string, unknown> = {}
+
+  // Campos básicos
+  if (data.startDate) updateData.startDate = new Date(data.startDate)
+  if (data.endDate) updateData.endDate = new Date(data.endDate)
+  if (data.initialAmount !== undefined) updateData.initialAmount = data.initialAmount
+
+  // Entidades asociadas
+  if (data.tenantId !== undefined) updateData.tenantId = data.tenantId
+  if (data.apartmentId !== undefined) updateData.apartmentId = data.apartmentId
+
+  // Comisión de la inmobiliaria
+  if (data.commissionType !== undefined) updateData.commissionType = data.commissionType
+  if (data.commissionValue !== undefined) updateData.commissionValue = data.commissionValue
+
+  // Vendedor y comisiones contractuales
+  if (data.vendorId !== undefined) updateData.vendorId = data.vendorId
+  if (data.vendorCommissionPct !== undefined) updateData.vendorCommissionPct = data.vendorCommissionPct
+  if (data.signupFeeAmount !== undefined) updateData.signupFeeAmount = data.signupFeeAmount
+  if (data.contractExpenses !== undefined) updateData.contractExpenses = data.contractExpenses
   
   return await prisma.contract.update({
     where: { id },
-    data: {
-      startDate: data.startDate ? new Date(data.startDate) : undefined,
-      endDate: data.endDate ? new Date(data.endDate) : undefined,
-      initialAmount: data.initialAmount
-    },
+    data: updateData,
     include: {
       apartment: true,
       tenant: true,
+      vendor: true,
       updateRule: {
         include: {
           updatePeriods: true
