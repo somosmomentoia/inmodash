@@ -7,6 +7,8 @@ import { errorHandler } from './middleware/errorHandler'
 import { securityHeaders, requestLogger, sanitizeInput } from './middleware/security'
 import { logger } from './utils/logger'
 import { startAllCronJobs } from './utils/cron'
+import prisma from './config/database'
+import { authenticate } from './middleware/auth'
 
 const app = express()
 
@@ -85,10 +87,11 @@ app.get('/health', (req, res) => {
   })
 })
 
-// Temporary diagnostic + sync endpoints
-import prisma from './config/database'
-
-app.get('/api/debug/db-check', async (req, res) => {
+// Debug endpoints — protected, only accessible by authenticated admin users
+app.get('/api/debug/db-check', authenticate, async (req, res) => {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Admin access required' })
+  }
   try {
     const tables: any[] = await prisma.$queryRaw`
       SELECT table_name FROM information_schema.tables 
@@ -96,7 +99,6 @@ app.get('/api/debug/db-check', async (req, res) => {
     `
     const tableNames = tables.map((t: any) => t.table_name)
     
-    // Get all columns per table
     const columns: any[] = await prisma.$queryRaw`
       SELECT table_name, column_name, data_type, is_nullable, column_default
       FROM information_schema.columns
@@ -116,8 +118,11 @@ app.get('/api/debug/db-check', async (req, res) => {
   }
 })
 
-// Full DB schema sync - adds ALL missing columns and tables
-app.post('/api/debug/full-sync', async (req, res) => {
+// Full DB schema sync — protected, admin only
+app.post('/api/debug/full-sync', authenticate, async (req, res) => {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Admin access required' })
+  }
   const results: string[] = []
   const errors: string[] = []
   
@@ -291,7 +296,6 @@ import vendorsRoutes from './routes/vendors.routes'
 import vendorCommissionsRoutes from './routes/vendor-commissions.routes'
 import staffRoutes from './routes/staff.routes'
 import permissionsRoutes from './routes/permissions.routes'
-import { authenticate } from './middleware/auth'
 
 // Usar rutas
 app.use('/api/auth', authRoutes)

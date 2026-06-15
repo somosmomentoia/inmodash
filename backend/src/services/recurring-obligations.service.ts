@@ -250,6 +250,15 @@ export const generateForMonth = async (month: string, userId: number) => {
 
   for (const recurring of recurrings) {
     try {
+      // V3: For rent recurrences tied to a contract, verify the contract hasn't expired
+      if (recurring.type === 'rent' && recurring.contract) {
+        const contractEnd = new Date(recurring.contract.endDate)
+        if (periodStart > contractEnd) {
+          results.skipped++
+          continue
+        }
+      }
+
       // Verificar si ya se generó para este mes
       if (recurring.lastGenerated) {
         const lastGen = new Date(recurring.lastGenerated)
@@ -289,6 +298,15 @@ export const generateForMonth = async (month: string, userId: number) => {
       // Verificar si corresponde aplicar actualización por índice
       let isUpdatePeriod = false
       if (recurring.type === 'rent' && recurring.updateIndexType && recurring.updateIndexType !== 'none' && recurring.updateFrequencyMonths) {
+        // Safety: skip update if remaining contract duration is less than the update frequency
+        const contractEnd = recurring.contract?.endDate ? new Date(recurring.contract.endDate) : (recurring.endDate ? new Date(recurring.endDate) : null)
+        const remainingMonths = contractEnd
+          ? (contractEnd.getFullYear() - periodStart.getFullYear()) * 12 + (contractEnd.getMonth() - periodStart.getMonth())
+          : Infinity
+        
+        if (remainingMonths < recurring.updateFrequencyMonths) {
+          // Not enough remaining contract time for another update cycle — skip index update
+        } else {
         const periodsSinceUpdate = (recurring.periodsSinceUpdate || 0) + 1
         
         // Si llegamos al período de actualización
@@ -321,6 +339,7 @@ export const generateForMonth = async (month: string, userId: number) => {
             // Continuar sin actualizar si hay error
           }
         }
+        } // end else (enough remaining months)
       }
 
       // Calcular comisiones e impactos para alquileres

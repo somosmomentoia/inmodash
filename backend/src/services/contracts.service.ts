@@ -87,7 +87,79 @@ export const getByTenantId = async (tenantId: number, userId: number) => {
   })
 }
 
+// ============================================================================
+// VALIDATION HELPERS
+// ============================================================================
+
+const MIN_CONTRACT_MONTHS = 3
+
+/**
+ * Calculate the number of full months between two dates.
+ */
+function monthsBetween(start: Date, end: Date): number {
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+}
+
+/**
+ * Map updateFrequency string to months.
+ */
+function frequencyToMonths(freq: string): number {
+  const map: Record<string, number> = {
+    mensual: 1,
+    bimestral: 2,
+    trimestral: 3,
+    cuatrimestral: 4,
+    semestral: 6,
+    anual: 12,
+  }
+  return map[freq] || 1
+}
+
+/**
+ * Validate contract duration and update frequency coherence.
+ * Throws descriptive errors if validation fails.
+ */
+function validateContractDurationAndUpdates(
+  startDate: Date,
+  endDate: Date,
+  updateFrequencyMonths?: number | null,
+  updateFrequencyLegacy?: string | null
+) {
+  const durationMonths = monthsBetween(startDate, endDate)
+
+  // V1: Minimum duration
+  if (durationMonths < MIN_CONTRACT_MONTHS) {
+    throw new Error(
+      `La duración mínima de un contrato es de ${MIN_CONTRACT_MONTHS} meses. ` +
+      `El contrato indicado dura ${durationMonths} mes(es).`
+    )
+  }
+
+  // V2: Update frequency must not exceed contract duration
+  const effectiveFreq = updateFrequencyMonths || (updateFrequencyLegacy ? frequencyToMonths(updateFrequencyLegacy) : null)
+  if (effectiveFreq && effectiveFreq > durationMonths) {
+    throw new Error(
+      `La frecuencia de actualización (${effectiveFreq} meses) supera la duración del contrato (${durationMonths} meses). ` +
+      `Ajuste la frecuencia de actualización o extienda la duración del contrato.`
+    )
+  }
+}
+
+// ============================================================================
+// CONTRACT CRUD
+// ============================================================================
+
 export const create = async (data: CreateContractDto, userId: number) => {
+  // Validate contract duration and update coherence
+  const startDate = new Date(data.startDate)
+  const endDate = new Date(data.endDate)
+  validateContractDurationAndUpdates(
+    startDate,
+    endDate,
+    data.updateFrequencyMonths,
+    data.updateRule?.updateFrequency
+  )
+
   // Crear contrato con update rule y períodos
   const contract = await prisma.contract.create({
     data: {
@@ -309,6 +381,15 @@ export const update = async (id: number, data: UpdateContractDto, userId: number
     throw new Error('Contract not found or access denied')
   }
 
+  // Resolve effective dates for validation
+  const effectiveStart = data.startDate ? new Date(data.startDate) : new Date(contract.startDate)
+  const effectiveEnd = data.endDate ? new Date(data.endDate) : new Date(contract.endDate)
+
+  // Validate duration if dates are being changed
+  if (data.startDate || data.endDate) {
+    validateContractDurationAndUpdates(effectiveStart, effectiveEnd)
+  }
+
   const updateData: Record<string, unknown> = {}
 
   // Campos básicos
@@ -329,8 +410,9 @@ export const update = async (id: number, data: UpdateContractDto, userId: number
   if (data.vendorCommissionPct !== undefined) updateData.vendorCommissionPct = data.vendorCommissionPct
   if (data.signupFeeAmount !== undefined) updateData.signupFeeAmount = data.signupFeeAmount
   if (data.contractExpenses !== undefined) updateData.contractExpenses = data.contractExpenses
-  
-  return await prisma.contract.update({
+
+  // Update contract
+  const updatedContract = await prisma.contract.update({
     where: { id },
     data: updateData,
     include: {
@@ -344,6 +426,54 @@ export const update = async (id: number, data: UpdateContractDto, userId: number
       }
     }
   })
+
+  // Fix #6: Propagate relevant changes to the associated RecurringObligation (rent)
+  const recurringUpdateData: Record<string, unknown> = {}
+  let shouldUpdateRecurring = false
+
+  if (data.initialAmount !== undefined) {
+    recurringUpdateData.amount = data.initialAmount
+    recurringUpdateData.currentAmount = data.initialAmount
+    shouldUpdateRecurring = true
+  }
+  if (data.commissionType !== undefined) {
+    recurringUpdateData.commissionType = data.commissionType
+    shouldUpdateRecurring = true
+  }
+  if (data.commissionValue !== undefined) {
+    recurringUpdateData.commissionValue = data.commissionValue
+    shouldUpdateRecurring = true
+  }
+  if (data.apartmentId !== undefined) {
+    recurringUpdateData.apartmentId = data.apartmentId
+    shouldUpdateRecurring = true
+  }
+  if (data.endDate) {
+    recurringUpdateData.endDate = new Date(data.endDate)
+    shouldUpdateRecurring = true
+  }
+  if (data.startDate) {
+    recurringUpdateData.startDate = new Date(data.startDate)
+    recurringUpdateData.dayOfMonth = new Date(data.startDate).getDate()
+    shouldUpdateRecurring = true
+  }
+
+  if (shouldUpdateRecurring) {
+    try {
+      await prisma.recurringObligation.updateMany({
+        where: {
+          contractId: id,
+          type: 'rent',
+          userId
+        },
+        data: recurringUpdateData
+      })
+    } catch (error) {
+      console.error('Error syncing RecurringObligation after contract update:', error)
+    }
+  }
+
+  return updatedContract
 }
 
 export const remove = async (id: number, userId: number) => {

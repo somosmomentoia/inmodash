@@ -917,9 +917,12 @@ export const removePayment = async (id: number, userId: number) => {
 // ============================================================================
 
 /**
- * Generate rent obligations for all active contracts for a given month
- * AND generate recurring obligations
- * Idempotent: won't create duplicates if already exists
+ * Generate all recurring obligations (including rent) for a given month.
+ * Rent obligations are generated from RecurringObligation records created
+ * automatically when a contract is created — NOT directly from contracts.
+ * This avoids duplicate rent generation and ensures index-based updates
+ * are applied correctly.
+ * Idempotent: won't create duplicates if already exists.
  */
 export const generateObligations = async (month: string, userId: number) => {
   // Parse month (YYYY-MM)
@@ -928,122 +931,15 @@ export const generateObligations = async (month: string, userId: number) => {
     throw new Error('Invalid month format. Use YYYY-MM')
   }
 
-  // Period is the first day of the month
-  const period = new Date(year, monthNum - 1, 1)
-  const periodKey = `${year}-${String(monthNum).padStart(2, '0')}`
-
   const results = {
     generated: 0,
     skipped: 0,
     errors: [] as string[]
   }
 
-  // ============================================================================
-  // PART 1: Generate RENT obligations from contracts
-  // ============================================================================
-  
-  // Get all active contracts for this user (active = endDate >= today)
-  const today = new Date()
-  const contracts = await prisma.contract.findMany({
-    where: {
-      userId,
-      endDate: {
-        gte: today
-      }
-    },
-    include: {
-      apartment: {
-        include: {
-          owner: true,
-          building: true
-        }
-      },
-      tenant: true,
-      updateRule: {
-        include: {
-          updatePeriods: true
-        }
-      }
-    }
-  })
-
-  for (const contract of contracts) {
-    try {
-      // Check if obligation already exists for this contract and period
-      const existing = await prisma.obligation.findFirst({
-        where: {
-          userId,
-          contractId: contract.id,
-          type: 'rent',
-          period
-        }
-      })
-
-      if (existing) {
-        results.skipped++
-        continue
-      }
-
-      // Calculate rent amount based on UpdateRule
-      let rentAmount = contract.initialAmount
-      
-      // Note: UpdateRule logic simplified - using initialAmount for now
-      // TODO: Implement proper update period calculation when needed
-
-      // Determine due date - default to 10th of the month
-      const dueDay = 10
-      const dueDate = new Date(year, monthNum - 1, dueDay)
-
-      // Get apartment info for description
-      const apartmentInfo = `Unidad ${contract.apartmentId}`
-
-      // Calculate distribution using contract's commission settings
-      const distribution = calculateDistribution(
-        'rent',
-        rentAmount,
-        'tenant',
-        contract.commissionType as CommissionType | undefined,
-        contract.commissionValue || undefined
-      )
-
-      // Create the obligation with proper distribution
-      await prisma.obligation.create({
-        data: {
-          userId,
-          contractId: contract.id,
-          apartmentId: contract.apartmentId,
-          type: 'rent',
-          description: `Alquiler ${apartmentInfo} - ${monthNum}/${year}`,
-          period,
-          dueDate,
-          amount: rentAmount,
-          paidAmount: 0,
-          paidBy: 'tenant',
-          chargeTo: 'tenant',
-          origin: 'contract_auto',
-          ownerImpact: distribution.ownerImpact,
-          agencyImpact: distribution.agencyImpact,
-          commissionAmount: distribution.commissionAmount,
-          ownerAmount: distribution.ownerAmount,
-          status: 'pending'
-        }
-      })
-
-      results.generated++
-    } catch (error: any) {
-      results.errors.push(`Contract ${contract.id}: ${error.message}`)
-    }
-  }
-
-  // ============================================================================
-  // PART 2: Generate RECURRING obligations
-  // ============================================================================
-  
+  // Generate all recurring obligations (rent + other recurrences) for this month
   try {
-    // Generate recurring obligations for this month
     const recurringResults = await recurringObligationsService.generateForMonth(month, userId)
-    
-    // Merge results
     results.generated += recurringResults.generated
     results.skipped += recurringResults.skipped
     results.errors.push(...recurringResults.errors)

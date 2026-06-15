@@ -3,11 +3,9 @@
  * Gestión de permisos de usuarios internos (staff)
  */
 
-import { PrismaClient } from '@prisma/client'
+import prisma from '../config/database'
 import { getPermissionsForRole } from '../lib/permissions/templates'
 import { assignRolePermissions } from '../lib/permissions'
-
-const prisma = new PrismaClient()
 
 /**
  * Obtiene los templates de permisos por rol

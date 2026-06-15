@@ -40,7 +40,7 @@ export interface Owner {
   email: string
   address: string
   bankAccount?: string
-  commissionPercentage?: number // Porcentaje de comisión de la inmobiliaria
+  commissionPercentage?: number // DEPRECATED: comisiones ahora se manejan a nivel contrato
   createdAt: Date
   updatedAt: Date
   apartments?: Apartment[]

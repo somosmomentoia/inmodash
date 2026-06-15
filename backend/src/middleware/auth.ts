@@ -33,11 +33,6 @@ export const authenticate = async (
       ? authHeader.substring(7)
       : req.cookies?.['auth-token']
 
-    console.log('[AUTH] Path:', req.path)
-    console.log('[AUTH] Auth header:', authHeader ? 'present' : 'missing')
-    console.log('[AUTH] Cookie token:', req.cookies?.['auth-token'] ? 'present' : 'missing')
-    console.log('[AUTH] Token:', token ? token.substring(0, 20) + '...' : 'none')
-
     if (!token) {
       logger.warn(`No token provided for ${req.method} ${req.path}`)
       return res.status(401).json({
@@ -48,7 +43,6 @@ export const authenticate = async (
 
     // Verify token
     const payload = await verifyToken(token)
-    console.log('[AUTH] Payload:', payload)
 
     if (!payload) {
       logger.warn(`Invalid token for ${req.method} ${req.path}`)
@@ -73,7 +67,9 @@ export const authenticate = async (
         const newToken = createToken({
           userId: payload.userId,
           email: payload.email,
-          role: payload.role
+          role: payload.role,
+          staffUserId: payload.staffUserId,
+          isStaff: payload.isStaff,
         })
         
         // Set new token in cookie
